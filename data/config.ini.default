@@ -1,0 +1,17 @@
+[account]
+email =
+token =
+header =
+domain =
+
+[log]
+logfile = data/log.log
+print_info = stdout
+log_info = false
+print_err = stderr
+log_err = true
+print_warn = stderr
+log_warn = true
+print_debug = stdout
+log_debug = true
+debug_lvl = 3
