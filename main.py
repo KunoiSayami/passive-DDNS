@@ -4,15 +4,12 @@
 #
 # This module is part of passive-DDNS and is released under
 # the AGPL v3 License: https://www.gnu.org/licenses/agpl-3.0.txt
-from __future__ import print_function
-import hostkerapi
-import requests
 import sys
-from libpy import Log
-import json
-import urllib2
-from libpy.Config import Config
 import time
+import urllib2
+import hostkerapi
+from libpy import Log
+from libpy.Config import Config
 
 external_ip_uri = 'https://www.appveyor.com/tools/my-ip.aspx'
 
