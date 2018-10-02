@@ -8,7 +8,7 @@ In principle, need python 2.7.x interpreter. And `requests` library must avaliab
 
 If you use it in first time, you need run `git submodule update --init` to get libpy file.
 
-Copy `config.ini.default` to `config.ini`, parse your `email`, `token`, `header`, `domain`, in configure file. Then, using this command to run program:
+Copy `config.ini.default` to `config.ini`, parse your `email`, `token`, `header_domain`, in configure file. Then, using this command to run program:
 
 ```bash
 python main.py

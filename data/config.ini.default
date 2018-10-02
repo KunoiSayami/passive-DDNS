@@ -1,8 +1,11 @@
 [account]
 email =
 token =
-header =
-domain =
+; For example, you want to set a.example.com and b.example.com and c.example.moe
+; you should set like this
+; header_domain = {'example.com': ['a', 'b'], 'example.moe': ['c']}
+header_domain = {'domain': ['header1', 'header2'], 'domain2': ['header3']}
+interval = 600
 
 [log]
 logfile = data/log.log

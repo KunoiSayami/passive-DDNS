@@ -1,3 +1,4 @@
+#!/bin/python
 # -*- coding: utf-8 -*-
 # main.py
 # Copyright (C) 2018 Too-Naive and contributors
@@ -24,7 +25,7 @@ import hostkerapi
 import os, signal
 from libpy import Log
 from subprocess import Popen
-from libpy.Config import Config
+from configparser import ConfigParser
 
 external_ip_uri = 'https://www.appveyor.com/tools/my-ip.aspx'
 
@@ -40,31 +41,35 @@ def get_current_IP():
 	return ip
 
 def main():
-	raw, ipaddr = hostkerapi.get_record_ip()
+	config = ConfigParser()
+	config.read('data/config.ini')
+	data_group = hostkerapi.get_record_ip()
+	interval = 600 if not config.has_option('account', 'interval') else int(config['account']['interval'])
 	Log.info('Initializtion successful')
 	#print(raw,ipaddr)
+	domain_checker = []
 	while True:
 		now_ip = get_current_IP()
-		if now_ip != ipaddr:
-			hostkerapi.apiRequest('editRecord',{'id': raw['id'], 'data': now_ip, 'ttl': raw['ttl']})
-			Log.info('IP change detected, Changed dns ip from {} to {}', ipaddr, now_ip)
-			raw, ipaddr = hostkerapi.get_record_ip()
-		time.sleep(600)
+		for domain, headers_data in data_group.items():
+			for header_data in headers_data:
+				if now_ip != header_data['data']:
+					domain_checker.append({'id': header_data['id'], 'data': now_ip, 'ttl': header_data['ttl']})
+		if len(domain_checker):
+			for data in domain_checker:
+				hostkerapi.apiRequest('editRecord', data)
+			Log.info('IP change detected, Changed dns ip from to {}', now_ip)
+			domain_checker = []
+		time.sleep(interval)
 
 def helpmsg():
 	print('Please using `[--daemon, -d] <file name>\' to run this program.\n\tusing `-kill` to kill daemon process (if running)')
 
 if __name__ == '__main__':
-	#if len(sys.argv) == 3:
-	#	if sys.argv[1] == '-d' or sys.argv[1] == '--daemon':
-	#		Popen(['python', sys.argv[0], '--daemon-start', sys.argv[2]])
-	#	elif sys.argv[1] == '--daemon-start':
-	#		with open(sys.argv[2], 'w') as fout:
-	#			fout.write(str(os.getpid()))
-	#	else:
-	#		helpmsg()
+	if len(sys.argv) == 1:
+		init()
+		main()
 	if len(sys.argv) == 2:
-		if sys.argv[1] == '-d' or sys.argv[1] == '--daemon':
+		if sys.argv[1] in ('-d', '--daemon'):
 			Popen(['python', sys.argv[0], '--daemon-start'])
 		elif sys.argv[1] == '--daemon-start':
 			with open('pid', 'w') as fout:

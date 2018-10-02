@@ -17,7 +17,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
-from libpy.Config import Config
+from configparser import ConfigParser
 from libpy import Log
 import requests
 import json
@@ -27,25 +27,39 @@ szapiTarget = {'getRecord':'https://i.hostker.com/api/dnsGetRecords',
 	'delRecord':'https://i.hostker.com/api/dnsDeleteRecord',
 }
 
+config = ConfigParser()
+config.read('data/config.ini')
+
 def apiRequest(operaction='getRecord', data=None):
 	assert data is None or isinstance(data, dict), 'data param must dict'
-	assert isinstance(operaction,str)
+	assert isinstance(operaction, str)
 	assert operaction in szapiTarget, 'operation `{}\' not support'.format(operaction)
-	t = {'email':Config.account.email, 'token':Config.account.token}
+	t = {'email':config['account']['email'], 'token':config['account']['token']}
 	if data is not None:
 		t.update(data)
 	r = requests.post(szapiTarget[operaction], t)
 	r.raise_for_status()
-	rjson = json.loads(str(r.content))
-	r.close()
+	rjson = r.json()
+	#r.close()
 	if rjson['success'] != 1:
 		Log.error('Error in apiRequest()! (errorMessage:`{}\')',rjson['errorMessage'])
 		Log.debug(1, 'operaction=`{}\', request_uri = `{}\', data=`{}\', t=`{}\'', operaction, szapiTarget[operaction], repr(data), repr(t))
 	return rjson
 	
-def get_record_ip():
-	r = apiRequest(data={'domain': Config.account.domain})
+def get_record_ip_ex(domain, headers):
+	r = apiRequest(data={'domain': domain})
 	#print(r['records'])
+	record_ip = []
 	for x in r['records']:
-		if x['header'] == Config.account.header:
-			return x, x['data']
+		if x['header'] in headers:
+			record_ip.append(x)
+	return record_ip
+
+def get_record_ip():
+	if config.has_option('account', 'domain'):
+		return {config['account']['domain']: get_record_ip_ex(config['account']['domain'], [config['account']['header']])}
+	else:
+		header_domain = eval(config['account']['header_domain'])
+		return {domain: get_record_ip_ex(domain, header_domain[domain]) for domain, _ in header_domain.items()}
+
+	
