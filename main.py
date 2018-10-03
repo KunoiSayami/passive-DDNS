@@ -43,13 +43,13 @@ def get_current_IP():
 def main():
 	config = ConfigParser()
 	config.read('data/config.ini')
-	data_group = hostkerapi.get_record_ip()
 	interval = 600 if not config.has_option('account', 'interval') else int(config['account']['interval'])
 	Log.info('Initializtion successful')
 	#print(raw,ipaddr)
 	domain_checker = []
 	while True:
 		now_ip = get_current_IP()
+		data_group = hostkerapi.get_record_ip()
 		for domain, headers_data in data_group.items():
 			for header_data in headers_data:
 				if now_ip != header_data['data']:
