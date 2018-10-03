@@ -48,18 +48,26 @@ def main():
 	#print(raw,ipaddr)
 	domain_checker = []
 	while True:
-		now_ip = get_current_IP()
-		data_group = hostkerapi.get_record_ip()
-		for domain, headers_data in data_group.items():
-			for header_data in headers_data:
-				if now_ip != header_data['data']:
-					domain_checker.append({'id': header_data['id'], 'data': now_ip, 'ttl': header_data['ttl']})
-		if len(domain_checker):
-			for data in domain_checker:
-				hostkerapi.apiRequest('editRecord', data)
-			Log.info('IP change detected, Changed dns ip from to {}', now_ip)
-			domain_checker = []
-		time.sleep(interval)
+		try:
+			now_ip = get_current_IP()
+			data_group = hostkerapi.get_record_ip()
+			for domain, headers_data in data_group.items():
+				for header_data in headers_data:
+					if now_ip != header_data['data']:
+						domain_checker.append({'id': header_data['id'], 'data': now_ip, 'ttl': header_data['ttl']})
+			if len(domain_checker):
+				for data in domain_checker:
+					hostkerapi.apiRequest('editRecord', data)
+				Log.info('IP change detected, Changed dns ip from to {}', now_ip)
+				domain_checker = []
+		except AssertionError:
+			Log.write_exception_error()
+			Log.error('Catched AssertionError, Program will now exit.')
+		except:
+			Log.write_exception_error()
+			time.sleep(10) # Failsafe
+		else:
+			time.sleep(interval)
 
 def helpmsg():
 	print('Please using `[--daemon, -d] <file name>\' to run this program.\n\tusing `-kill` to kill daemon process (if running)')
