@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # hostkerapi.py
-# Copyright (C) 2018 Too-Naive and contributors
+# Copyright (C) 2018-2019 KunoiSayami and contributors
 #
 # This module is part of passive-DDNS and is released under
 # the AGPL v3 License: https://www.gnu.org/licenses/agpl-3.0.txt
@@ -18,9 +18,15 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 from configparser import ConfigParser
-from libpy import Log
 import requests
 import json
+import sys
+
+if sys.version_info[0] == 2:
+	from libpy import Log
+else:
+	from libpy3 import Log
+
 szapiTarget = {'getRecord':'https://i.hostker.com/api/dnsGetRecords',
 	'addRecord':'https://i.hostker.com/api/dnsAddRecord',
 	'editRecord':'https://i.hostker.com/api/dnsEditRecord',
@@ -43,9 +49,12 @@ def apiRequest(operaction='getRecord', data=None):
 	#r.close()
 	if rjson['success'] != 1:
 		Log.error('Error in apiRequest()! (errorMessage:`{}\')',rjson['errorMessage'])
-		Log.debug(1, 'operaction=`{}\', request_uri = `{}\', data=`{}\', t=`{}\'', operaction, szapiTarget[operaction], repr(data), repr(t))
+		if sys.version_info[0] == 2:
+			Log.debug(1, 'operaction=`{}\', request_uri = `{}\', data=`{}\', t=`{}\'', operaction, szapiTarget[operaction], repr(data), repr(t))
+		else:
+			Log.custom('DEBUG', 'operaction=`{}\', request_uri = `{}\', data=`{}\', t=`{}\'', operaction, szapiTarget[operaction], repr(data), repr(t))
 	return rjson
-	
+
 def get_record_ip_ex(domain, headers):
 	r = apiRequest(data={'domain': domain})
 	#print(r['records'])
@@ -61,5 +70,3 @@ def get_record_ip():
 	else:
 		header_domain = eval(config['account']['header_domain'])
 		return {domain: get_record_ip_ex(domain, header_domain[domain]) for domain, _ in header_domain.items()}
-
-	

@@ -1,7 +1,7 @@
 #!/bin/python
 # -*- coding: utf-8 -*-
 # main.py
-# Copyright (C) 2018 Too-Naive and contributors
+# Copyright (C) 2018-2019 KunoiSayami and contributors
 #
 # This module is part of passive-DDNS and is released under
 # the AGPL v3 License: https://www.gnu.org/licenses/agpl-3.0.txt
@@ -20,24 +20,35 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 import sys
 import time
-import urllib2
+if sys.version_info[0] == 2:
+	import urllib2
+	from libpy import Log
+else:
+	import requests
+	from libpy3 import Log
 import hostkerapi
 import os, signal
-from libpy import Log
 from subprocess import Popen
 from configparser import ConfigParser
 
 external_ip_uri = 'https://www.appveyor.com/tools/my-ip.aspx'
 
 def init():
-	reload(sys)
-	sys.setdefaultencoding('utf8')
+	if sys.version[0] == 2:
+		reload(sys)
+		sys.setdefaultencoding('utf8')
 
 def get_current_IP():
-	r = urllib2.urlopen(external_ip_uri)
-	ip = r.read()
+	if sys.version[0] == 2:
+		r = urllib2.urlopen(external_ip_uri)
+		ip = r.read()
+		r.close()
+	else:
+		r = requests.get(external_ip_uri)
+		r.raise_for_status()
+		ip = r.text
 	# Maybe need some process
-	r.close()
+	#r.close()
 	return ip
 
 def main():
@@ -61,10 +72,10 @@ def main():
 				Log.info('IP change detected, Changed dns ip from to {}', now_ip)
 				domain_checker = []
 		except AssertionError:
-			Log.write_exception_error()
+			Log.exc()
 			Log.error('Catched AssertionError, Program will now exit.')
 		except:
-			Log.write_exception_error()
+			Log.exc()
 			time.sleep(10) # Failsafe
 		else:
 			time.sleep(interval)
