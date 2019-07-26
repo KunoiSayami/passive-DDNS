@@ -1,4 +1,3 @@
-#!/bin/python
 # -*- coding: utf-8 -*-
 # main.py
 # Copyright (C) 2018-2019 KunoiSayami and contributors
@@ -22,16 +21,18 @@ import sys
 import time
 if sys.version_info[0] == 2:
 	import urllib2
-	from libpy import Log
 else:
 	import requests
-	from libpy3 import Log
 import hostkerapi
 import os, signal
 from subprocess import Popen
 from configparser import ConfigParser
+import logging
 
 external_ip_uri = 'https://www.appveyor.com/tools/my-ip.aspx'
+
+logger = logging.getLogger('passive-DDNS')
+logger.setLevel(logging.DEBUG)
 
 def init():
 	if sys.version[0] == 2:
@@ -39,6 +40,15 @@ def init():
 		sys.setdefaultencoding('utf8')
 
 def get_current_IP():
+	while True:
+		try:
+			return _get_current_IP()
+		except:
+			logger.exception('Exception while get current ip:')
+			time.sleep(5)
+
+
+def _get_current_IP():
 	if sys.version[0] == 2:
 		r = urllib2.urlopen(external_ip_uri)
 		ip = r.read()
@@ -55,7 +65,10 @@ def main():
 	config = ConfigParser()
 	config.read('data/config.ini')
 	interval = 600 if not config.has_option('account', 'interval') else int(config['account']['interval'])
-	Log.info('Initializtion successful')
+	if config.has_section('ipconfig') and config.has_option('ipconfig', 'extern_ip_uri'):
+		global external_ip_uri
+		external_ip_uri = config['ipconfig']['extern_ip_uri']
+	logger.info('Initializtion successful')
 	#print(raw,ipaddr)
 	domain_checker = []
 	while True:
@@ -69,13 +82,12 @@ def main():
 			if len(domain_checker):
 				for data in domain_checker:
 					hostkerapi.apiRequest('editRecord', data)
-				Log.info('IP change detected, Changed dns ip from to {}', now_ip)
+				logger.info('IP change detected, Changed dns ip from to %s', now_ip)
 				domain_checker = []
 		except AssertionError:
-			Log.exc()
-			Log.error('Catched AssertionError, Program will now exit.')
+			logger.exception('Catched AssertionError, Program will now exit.')
 		except:
-			Log.exc()
+			logger.exception('Got unexcepted error')
 			time.sleep(10) # Failsafe
 		else:
 			time.sleep(interval)
@@ -87,7 +99,7 @@ if __name__ == '__main__':
 	if len(sys.argv) == 1:
 		init()
 		main()
-	if len(sys.argv) == 2:
+	elif len(sys.argv) == 2:
 		if sys.argv[1] in ('-d', '--daemon'):
 			Popen(['python', sys.argv[0], '--daemon-start'])
 		elif sys.argv[1] == '--daemon-start':

@@ -6,29 +6,3 @@ token =
 ; header_domain = {'example.com': ['a', 'b'], 'example.moe': ['c']}
 header_domain = {'domain': ['header1', 'header2'], 'domain2': ['header3']}
 interval = 600
-
-[log]
-; Python 2 settings
-logfile = data/log.log
-print_info = stdout
-log_info = false
-print_err = stderr
-log_err = true
-print_warn = stderr
-log_warn = true
-print_debug = stdout
-log_debug = true
-debug_lvl = 3
-; Python 3 settings below
-; OFF/EMERG/CRIT/FATAL/ALERT/ERROR/WARN/NOTIFY/INFO/DEBUG/ALL
-log_level = INFO
-; Absolute path or relative path
-log_file = data/log.log
-; Absolute path or relative path also (stderr/stdout/None)
-pre_print = stdout
-; Use queue to store emergency log (bool: default = true)
-use_queue = false
-; Print to sth when reach specified level
-emerg_print = WARN
-; Specify print to standard pipe (stderr/stdout)
-emerg_print_to = stderr

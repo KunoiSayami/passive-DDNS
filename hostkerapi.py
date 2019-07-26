@@ -21,13 +21,13 @@ from configparser import ConfigParser
 import requests
 import json
 import sys
+import logging
 
-if sys.version_info[0] == 2:
-	from libpy import Log
-else:
-	from libpy3 import Log
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
-szapiTarget = {'getRecord':'https://i.hostker.com/api/dnsGetRecords',
+szapiTarget = {
+	'getRecord':'https://i.hostker.com/api/dnsGetRecords',
 	'addRecord':'https://i.hostker.com/api/dnsAddRecord',
 	'editRecord':'https://i.hostker.com/api/dnsEditRecord',
 	'delRecord':'https://i.hostker.com/api/dnsDeleteRecord',
@@ -48,11 +48,11 @@ def apiRequest(operaction='getRecord', data=None):
 	rjson = r.json()
 	#r.close()
 	if rjson['success'] != 1:
-		Log.error('Error in apiRequest()! (errorMessage:`{}\')',rjson['errorMessage'])
+		logger.error('Error in apiRequest()! (errorMessage:`%s\')',rjson['errorMessage'])
 		if sys.version_info[0] == 2:
-			Log.debug(1, 'operaction=`{}\', request_uri = `{}\', data=`{}\', t=`{}\'', operaction, szapiTarget[operaction], repr(data), repr(t))
+			logger.debug('operaction=`%s\', request_uri = `%s\', data=`%s\', t=`%s\'', operaction, szapiTarget[operaction], repr(data), repr(t))
 		else:
-			Log.custom('DEBUG', 'operaction=`{}\', request_uri = `{}\', data=`{}\', t=`{}\'', operaction, szapiTarget[operaction], repr(data), repr(t))
+			logger.debug('operaction=`%s\', request_uri = `%s\', data=`%s\', t=`%s\'', operaction, szapiTarget[operaction], repr(data), repr(t))
 	return rjson
 
 def get_record_ip_ex(domain, headers):
