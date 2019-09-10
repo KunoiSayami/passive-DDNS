@@ -28,11 +28,16 @@ import os, signal
 from subprocess import Popen
 from configparser import ConfigParser
 import logging
+import bs4
 
-external_ip_uri = 'https://www.appveyor.com/tools/my-ip.aspx'
+external_ip_uri = 'https://ipip.net/'
+
+headers = {
+	'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36'
+}
 
 logger = logging.getLogger('passive-DDNS')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.WARNING)
 
 def init():
 	if sys.version[0] == 2:
@@ -50,36 +55,43 @@ def get_current_IP():
 
 def _get_current_IP():
 	if sys.version[0] == 2:
-		r = urllib2.urlopen(external_ip_uri)
-		ip = r.read()
-		r.close()
+		req = urllib2.Request(external_ip_uri, headers=headers)
+		r = urllib2.urlopen(req)
+		text = r.read().decode('utf8')
 	else:
-		r = requests.get(external_ip_uri)
+		r = requests.get(external_ip_uri, headers=headers)
 		r.raise_for_status()
-		ip = r.text
+		text = r.text
+	ip = bs4.BeautifulSoup(text, 'lxml').find(class_='yourInfo').select('li a')[0].text
+	if sys.version[0] == 2:
+		r.close()
 	# Maybe need some process
 	#r.close()
 	return ip
 
 def main():
+	logger.debug('Loading configure file')
 	config = ConfigParser()
 	config.read('data/config.ini')
 	interval = 600 if not config.has_option('account', 'interval') else int(config['account']['interval'])
-	if config.has_section('ipconfig') and config.has_option('ipconfig', 'extern_ip_uri'):
-		global external_ip_uri
-		external_ip_uri = config['ipconfig']['extern_ip_uri']
+	if config.has_option('log', 'level'):
+		logger.setLevel(int(config['log']['level']))
 	logger.info('Initializtion successful')
 	#print(raw,ipaddr)
 	domain_checker = []
 	while True:
 		try:
+			logger.debug('Getting current ip')
 			now_ip = get_current_IP()
+			logger.debug('Getting dns record ip')
 			data_group = hostkerapi.get_record_ip()
-			for domain, headers_data in data_group.items():
+			logger.debug('Checking records')
+			for _domain, headers_data in data_group.items():
 				for header_data in headers_data:
 					if now_ip != header_data['data']:
 						domain_checker.append({'id': header_data['id'], 'data': now_ip, 'ttl': header_data['ttl']})
-			if len(domain_checker):
+			if domain_checker:
+				logger.debug('Find %d record need update, update it.', len(domain_checker))
 				for data in domain_checker:
 					hostkerapi.apiRequest('editRecord', data)
 				logger.info('IP change detected, Changed dns ip from to %s', now_ip)
@@ -96,12 +108,13 @@ def helpmsg():
 	print('Please using `[--daemon, -d] <file name>\' to run this program.\n\tusing `-kill` to kill daemon process (if running)')
 
 if __name__ == '__main__':
+	logging.basicConfig(level=logging.DEBUG, format = '%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
 	if len(sys.argv) == 1:
 		init()
 		main()
 	elif len(sys.argv) == 2:
 		if sys.argv[1] in ('-d', '--daemon'):
-			Popen(['python', sys.argv[0], '--daemon-start'])
+			Popen([sys.executable, sys.argv[0], '--daemon-start'])
 		elif sys.argv[1] == '--daemon-start':
 			with open('pid', 'w') as fout:
 				fout.write(str(os.getpid()))
