@@ -4,9 +4,7 @@ Design for [hosker](https://zhujike.com), It use in has public IP home network t
 
 ## Usage
 
-In principle, need Python 2.7.x or Python 3.5.x interpreter. And `requests` library must avaliable.
-
-If you use it in first time, you need run `git submodule update --init` to get libpy file.
+In principle, need Python 2.7.x or Python 3.5.x interpreter. And `requests`, `bs4` library must avaliable.
 
 Copy `config.ini.default` to `config.ini`, parse your `email`, `token`, `header_domain`, in configure file. Then, using this command to run program:
 

@@ -19,16 +19,14 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 import sys
 import time
-if sys.version_info[0] == 2:
-	import urllib2
-else:
-	import requests
+import requests
 import hostkerapi
 import os, signal
 from subprocess import Popen
 from configparser import ConfigParser
 import logging
 import bs4
+import libtplink
 
 external_ip_uri = 'https://ipip.net/'
 
@@ -54,19 +52,9 @@ def get_current_IP():
 
 
 def _get_current_IP():
-	if sys.version[0] == 2:
-		req = urllib2.Request(external_ip_uri, headers=headers)
-		r = urllib2.urlopen(req)
-		text = r.read().decode('utf8')
-	else:
-		r = requests.get(external_ip_uri, headers=headers)
-		r.raise_for_status()
-		text = r.text
-	ip = bs4.BeautifulSoup(text, 'lxml').find(class_='yourInfo').select('li a')[0].text
-	if sys.version[0] == 2:
-		r.close()
-	# Maybe need some process
-	#r.close()
+	r = requests.get(external_ip_uri, headers=headers)
+	r.raise_for_status()
+	ip = bs4.BeautifulSoup(r.text, 'lxml').find(class_='yourInfo').select('li a')[0].text
 	return ip
 
 def main():
@@ -74,6 +62,7 @@ def main():
 	config = ConfigParser()
 	config.read('data/config.ini')
 	interval = 600 if not config.has_option('account', 'interval') else int(config['account']['interval'])
+	tplink_enabled = config.has_section('tplink') and config['tplink']['enabled'].lower() == 'true'
 	if config.has_option('log', 'level'):
 		logger.setLevel(int(config['log']['level']))
 	logger.info('Initializtion successful')
@@ -82,7 +71,10 @@ def main():
 	while True:
 		try:
 			logger.debug('Getting current ip')
-			now_ip = get_current_IP()
+			if tplink_enabled:
+				now_ip = libtplink.get_ip_from_tplink(config['tplink']['url'], config['tplink']['password'])
+			else:
+				now_ip = get_current_IP()
 			logger.debug('Getting dns record ip')
 			data_group = hostkerapi.get_record_ip()
 			logger.debug('Checking records')
