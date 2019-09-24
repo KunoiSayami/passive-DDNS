@@ -38,6 +38,7 @@ class tplink_helper:
 		self.url = url
 		self.passwd = encrypt_passwd(passwd)
 		self.stok = ''
+		self.last_action = 0
 	def do_login(self):
 		r = requests.post(self.url, json={'method': 'do', 'login': {'password': self.passwd}})
 		r.raise_for_status()
@@ -45,8 +46,9 @@ class tplink_helper:
 		if status['error_code'] != 0:
 			raise LoginError(status)
 		self.stok = status['stok']
+		self.last_action = time.time()
 	def get_ip(self):
-		if self.stok == '':
+		if self.stok == '' or time.time() - self.last_action > 1700:
 			self.do_login()
 		r = requests.post(f'{self.url}stok={self.stok}/ds', json={'method': 'get', 'network': {'name': 'wan_status'}})
 		r.raise_for_status()
