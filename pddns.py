@@ -63,6 +63,8 @@ def main():
 	config.read('data/config.ini')
 	interval = 600 if not config.has_option('account', 'interval') else int(config['account']['interval'])
 	tplink_enabled = config.has_section('tplink') and config['tplink']['enabled'].lower() == 'true'
+	if tplink_enabled:
+		tplink_helper = libtplink.tplink_helper(config['tplink']['url'], config['tplink']['password'])
 	if config.has_option('log', 'level'):
 		logger.setLevel(int(config['log']['level']))
 	logger.info('Initializtion successful')
@@ -72,7 +74,8 @@ def main():
 		try:
 			logger.debug('Getting current ip')
 			if tplink_enabled:
-				now_ip = libtplink.get_ip_from_tplink(config['tplink']['url'], config['tplink']['password'])
+				#now_ip = libtplink.get_ip_from_tplink(config['tplink']['url'], config['tplink']['password'])
+				now_ip = tplink_helper.get_ip()
 			else:
 				now_ip = get_current_IP()
 			logger.debug('Getting dns record ip')

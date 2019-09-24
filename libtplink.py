@@ -2,6 +2,7 @@
 from __future__ import print_function, unicode_literals
 import requests
 import json
+import time
 # copied from http://www.voidcn.com/article/p-ckdtymdi-pz.html
 short = "RDpbLfCPsJZ7fiv"
 Lng = 'yLwVl0zKqws7LgKPRQ84Mdt708T1qQ3Ha7xv3H7NyU84p21BriUWBU43odz3iP4rBL3cD02KZciXTysVXiV8ngg6vL48rPJyAUw0HurW20xqxv9aYb4M9wK1Ae0wlro510qXeU07kV57fQMc8L6aLgMLwygtc0F10a0Dg70TOoouyFhdysuRMO51yY5ZlOZZLEal1h0t9YQW0Ko7oBwmCAHoic4HYbUyVeU3sfQ1xtXcPcf1aT303wAQhv66qzW'
@@ -30,17 +31,29 @@ def encrypt_passwd(origin_password):
 		e.append(Lng[(l ^ n) % k])
 	return ''.join(e)
 
-def get_ip_from_tplink(url, passwd):
-	r = requests.post(url, json={'method': 'do', 'login': {'password': encrypt_passwd(passwd)}})
-	r.raise_for_status()
-	status = json.loads(r.text)
-	stok = status['stok']
-	r = requests.post(f'{url}stok={stok}/ds', json={'method': 'get', 'network': {'name': 'wan_status'}})
-	r.raise_for_status()
-	status = json.loads(r.text)
-	#if status['network']['wan_status']['proto'] != 'pppoe':
-	return status['network']['wan_status']['ipaddr']
+class LoginError(Exception): pass
+
+class tplink_helper:
+	def __init__(self, url, passwd):
+		self.url = url
+		self.passwd = encrypt_passwd(passwd)
+		self.stok = ''
+	def do_login(self):
+		r = requests.post(self.url, json={'method': 'do', 'login': {'password': self.passwd}})
+		r.raise_for_status()
+		status = json.loads(r.text)
+		if status['error_code'] != 0:
+			raise LoginError(status)
+		self.stok = status['stok']
+	def get_ip(self):
+		if self.stok == '':
+			self.do_login()
+		r = requests.post(f'{self.url}stok={self.stok}/ds', json={'method': 'get', 'network': {'name': 'wan_status'}})
+		r.raise_for_status()
+		status = json.loads(r.text)
+		#if status['network']['wan_status']['proto'] != 'pppoe':
+		return status['network']['wan_status']['ipaddr']
 
 if __name__ == "__main__":
-	print(encrypt_passwd('test'))
-	print(get_ip_from_tplink('http://127.0.0.1/', 'test'))
+	#print(encrypt_passwd('test'))
+	print(tplink_helper('http://127.0.0.1/', 'test').get_ip())
