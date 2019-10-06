@@ -68,7 +68,6 @@ def main():
 	if config.has_option('log', 'level'):
 		logger.setLevel(int(config['log']['level']))
 	logger.info('Initializtion successful')
-	#print(raw,ipaddr)
 	domain_checker = []
 	while True:
 		try:

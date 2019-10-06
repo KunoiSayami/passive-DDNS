@@ -45,13 +45,14 @@ class tplink_helper:
 		status = json.loads(r.text)
 		if status['error_code'] != 0:
 			raise LoginError(status)
-		self.stok = status['stok']
 		self.last_action = time.time()
+		self.stok = status['stok']
 	def get_ip(self):
 		if self.stok == '' or time.time() - self.last_action > 1700:
 			self.do_login()
 		r = requests.post(f'{self.url}stok={self.stok}/ds', json={'method': 'get', 'network': {'name': 'wan_status'}})
 		r.raise_for_status()
+		self.last_action = time.time()
 		status = json.loads(r.text)
 		#if status['network']['wan_status']['proto'] != 'pppoe':
 		return status['network']['wan_status']['ipaddr']
