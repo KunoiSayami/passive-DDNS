@@ -6,7 +6,7 @@ import time
 # copied from http://www.voidcn.com/article/p-ckdtymdi-pz.html
 short = "RDpbLfCPsJZ7fiv"
 Lng = 'yLwVl0zKqws7LgKPRQ84Mdt708T1qQ3Ha7xv3H7NyU84p21BriUWBU43odz3iP4rBL3cD02KZciXTysVXiV8ngg6vL48rPJyAUw0HurW20xqxv9aYb4M9wK1Ae0wlro510qXeU07kV57fQMc8L6aLgMLwygtc0F10a0Dg70TOoouyFhdysuRMO51yY5ZlOZZLEal1h0t9YQW0Ko7oBwmCAHoic4HYbUyVeU3sfQ1xtXcPcf1aT303wAQhv66qzW'
-def encrypt_passwd(origin_password):
+def encrypt_passwd(origin_password: str):
 	e = []
 	f, g, h, k, l = 187, 187, 187, 187, 187
 	n = 187
@@ -34,13 +34,13 @@ def encrypt_passwd(origin_password):
 class LoginError(Exception): pass
 
 class tplink_helper:
-	def __init__(self, url, passwd):
+	def __init__(self, url: str, passwd: str):
 		self.url = url
-		self.passwd = encrypt_passwd(passwd)
+		self._passwd = encrypt_passwd(passwd)
 		self.stok = ''
 		self.last_action = 0
 	def do_login(self):
-		r = requests.post(self.url, json={'method': 'do', 'login': {'password': self.passwd}})
+		r = requests.post(self.url, json={'method': 'do', 'login': {'password': self._passwd}})
 		r.raise_for_status()
 		status = json.loads(r.text)
 		if status['error_code'] != 0:

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # hostkerapi.py
-# Copyright (C) 2018-2019 KunoiSayami and contributors
+# Copyright (C) 2018-2020 KunoiSayami and contributors
 #
 # This module is part of passive-DDNS and is released under
 # the AGPL v3 License: https://www.gnu.org/licenses/agpl-3.0.txt
@@ -19,8 +19,6 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 from configparser import ConfigParser
 import requests
-import json
-import sys
 import logging
 
 logger = logging.getLogger(__name__)
@@ -36,7 +34,7 @@ szapiTarget = {
 config = ConfigParser()
 config.read('data/config.ini')
 
-def apiRequest(operaction='getRecord', data=None):
+def apiRequest(operaction: str = 'getRecord', data: dict = None) -> dict:
 	assert data is None or isinstance(data, dict), 'data param must dict'
 	assert isinstance(operaction, str)
 	assert operaction in szapiTarget, 'operation `{}\' not support'.format(operaction)
@@ -49,13 +47,10 @@ def apiRequest(operaction='getRecord', data=None):
 	#r.close()
 	if rjson['success'] != 1:
 		logger.error('Error in apiRequest()! (errorMessage:`%s\')',rjson['errorMessage'])
-		if sys.version_info[0] == 2:
-			logger.debug('operaction=`%s\', request_uri = `%s\', data=`%s\', t=`%s\'', operaction, szapiTarget[operaction], repr(data), repr(t))
-		else:
-			logger.debug('operaction=`%s\', request_uri = `%s\', data=`%s\', t=`%s\'', operaction, szapiTarget[operaction], repr(data), repr(t))
+		logger.debug('operaction=`%s\', request_uri = `%s\', data=`%s\', t=`%s\'', operaction, szapiTarget[operaction], repr(data), repr(t))
 	return rjson
 
-def get_record_ip_ex(domain, headers):
+def get_record_ip_ex(domain: str, headers: list) -> list:
 	r = apiRequest(data={'domain': domain})
 	#print(r['records'])
 	record_ip = []
@@ -64,7 +59,7 @@ def get_record_ip_ex(domain, headers):
 			record_ip.append(x)
 	return record_ip
 
-def get_record_ip():
+def get_record_ip() -> dict:
 	if config.has_option('account', 'domain'):
 		return {config['account']['domain']: get_record_ip_ex(config['account']['domain'], [config['account']['header']])}
 	else:

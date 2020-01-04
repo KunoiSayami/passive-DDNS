@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # main.py
-# Copyright (C) 2018-2019 KunoiSayami and contributors
+# Copyright (C) 2018-2020 KunoiSayami and contributors
 #
 # This module is part of passive-DDNS and is released under
 # the AGPL v3 License: https://www.gnu.org/licenses/agpl-3.0.txt
@@ -20,13 +20,13 @@
 import sys
 import time
 import requests
-import hostkerapi
 import os, signal
 from subprocess import Popen
 from configparser import ConfigParser
 import logging
 import bs4
 import libtplink
+import hostkerapi
 
 external_ip_uri = 'https://ipip.net/'
 
@@ -35,12 +35,6 @@ headers = {
 }
 
 logger = logging.getLogger('passive-DDNS')
-logger.setLevel(logging.WARNING)
-
-def init():
-	if sys.version[0] == 2:
-		reload(sys)
-		sys.setdefaultencoding('utf8')
 
 def get_current_IP():
 	while True:
@@ -50,23 +44,25 @@ def get_current_IP():
 			logger.exception('Exception while get current ip:')
 			time.sleep(5)
 
-
 def _get_current_IP():
 	r = requests.get(external_ip_uri, headers=headers)
 	r.raise_for_status()
-	ip = bs4.BeautifulSoup(r.text, 'lxml').find(class_='yourInfo').select('li a')[0].text
+	try:
+		soup = bs4.BeautifulSoup(r.text, 'lxml')
+	except bs4.FeatureNotFound:
+		soup = bs4.BeautifulSoup(r.text, 'html.parser')
+	ip = soup.find(class_='yourInfo').select('li a')[0].text
 	return ip
 
 def main():
 	logger.debug('Loading configure file')
 	config = ConfigParser()
 	config.read('data/config.ini')
-	interval = 600 if not config.has_option('account', 'interval') else int(config['account']['interval'])
-	tplink_enabled = config.has_section('tplink') and config['tplink']['enabled'].lower() == 'true'
+	interval = config.getint('account', 'interval', fallback=600)
+	tplink_enabled = config.getboolean('tplink', 'enabled', fallback=False)
 	if tplink_enabled:
 		tplink_helper = libtplink.tplink_helper(config['tplink']['url'], config['tplink']['password'])
-	if config.has_option('log', 'level'):
-		logger.setLevel(int(config['log']['level']))
+	logger.setLevel(config.getint('log', 'level', fallback=logging.INFO))
 	logger.info('Initializtion successful')
 	domain_checker = []
 	while True:
@@ -90,8 +86,9 @@ def main():
 					hostkerapi.apiRequest('editRecord', data)
 				logger.info('IP change detected, Changed dns ip from to %s', now_ip)
 				domain_checker = []
-		except AssertionError:
+		except AssertionError as e:
 			logger.exception('Catched AssertionError, Program will now exit.')
+			raise e
 		except:
 			logger.exception('Got unexcepted error')
 			time.sleep(10) # Failsafe
@@ -104,7 +101,6 @@ def helpmsg():
 if __name__ == '__main__':
 	logging.basicConfig(level=logging.DEBUG, format = '%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
 	if len(sys.argv) == 1:
-		init()
 		main()
 	elif len(sys.argv) == 2:
 		if sys.argv[1] in ('-d', '--daemon'):
@@ -112,7 +108,6 @@ if __name__ == '__main__':
 		elif sys.argv[1] == '--daemon-start':
 			with open('pid', 'w') as fout:
 				fout.write(str(os.getpid()))
-			init()
 			main()
 		elif sys.argv[1] == '-kill':
 			with open('pid') as fin:
