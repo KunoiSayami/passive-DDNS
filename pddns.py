@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# main.py
+# pddns.py
 # Copyright (C) 2018-2020 KunoiSayami and contributors
 #
 # This module is part of passive-DDNS and is released under
@@ -27,6 +27,7 @@ import logging
 import bs4
 import libtplink
 import hostkerapi
+import libopenwrt
 
 external_ip_uri = 'https://ipip.net/'
 
@@ -61,7 +62,13 @@ def main():
 	interval = config.getint('account', 'interval', fallback=600)
 	tplink_enabled = config.getboolean('tplink', 'enabled', fallback=False)
 	if tplink_enabled:
-		tplink_helper = libtplink.tplink_helper(config['tplink']['url'], config['tplink']['password'])
+		tplink_helper = libtplink.TpLinkHelper(config['tplink']['url'], config['tplink']['password'])
+	openwrt_enabled = config.getboolean('openwrt', 'enabled', fallback=False)
+	if openwrt_enabled:
+		openwrt_helper = libopenwrt.OpenWRTHelper(
+			config.get('openwrt', 'route'),
+			config.get('openwrt', 'user'),
+			config.get('openwrt', 'password'))
 	logger.setLevel(config.getint('log', 'level', fallback=logging.INFO))
 	logger.info('Initializtion successful')
 	domain_checker = []
@@ -69,8 +76,9 @@ def main():
 		try:
 			logger.debug('Getting current ip')
 			if tplink_enabled:
-				#now_ip = libtplink.get_ip_from_tplink(config['tplink']['url'], config['tplink']['password'])
 				now_ip = tplink_helper.get_ip()
+			elif openwrt_enabled:
+				now_ip = openwrt_helper.get_ip()
 			else:
 				now_ip = get_current_IP()
 			logger.debug('Getting dns record ip')

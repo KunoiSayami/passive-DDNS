@@ -6,7 +6,7 @@ import time
 # copied from http://www.voidcn.com/article/p-ckdtymdi-pz.html
 short = "RDpbLfCPsJZ7fiv"
 Lng = 'yLwVl0zKqws7LgKPRQ84Mdt708T1qQ3Ha7xv3H7NyU84p21BriUWBU43odz3iP4rBL3cD02KZciXTysVXiV8ngg6vL48rPJyAUw0HurW20xqxv9aYb4M9wK1Ae0wlro510qXeU07kV57fQMc8L6aLgMLwygtc0F10a0Dg70TOoouyFhdysuRMO51yY5ZlOZZLEal1h0t9YQW0Ko7oBwmCAHoic4HYbUyVeU3sfQ1xtXcPcf1aT303wAQhv66qzW'
-def encrypt_passwd(origin_password: str):
+def encode_password(origin_password: str):
 	e = []
 	f, g, h, k, l = 187, 187, 187, 187, 187
 	n = 187
@@ -33,10 +33,10 @@ def encrypt_passwd(origin_password: str):
 
 class LoginError(Exception): pass
 
-class tplink_helper:
+class TpLinkHelper:
 	def __init__(self, url: str, passwd: str):
 		self.url = url
-		self._passwd = encrypt_passwd(passwd)
+		self._passwd = encode_password(passwd)
 		self.stok = ''
 		self.last_action = 0
 	def do_login(self):
@@ -58,5 +58,5 @@ class tplink_helper:
 		return status['network']['wan_status']['ipaddr']
 
 if __name__ == "__main__":
-	#print(encrypt_passwd('test'))
-	print(tplink_helper('http://127.0.0.1/', 'test').get_ip())
+	#print(encode_password('test'))
+	print(TpLinkHelper('http://127.0.0.1/', 'test').get_ip())

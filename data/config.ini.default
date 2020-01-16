@@ -11,3 +11,9 @@ interval = 600
 enabled = false
 password =
 url =
+
+[openwrt]
+enabled = false
+route =
+user =
+password =
