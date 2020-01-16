@@ -1,0 +1,14 @@
+[Unit]
+Description=Passive DDNS service
+After=network.target
+
+[Service]
+Type=simple
+User=nobody
+Restart=on-failure
+RestartSec=5s
+WorkingDirectory=/opt/passive-DDNS
+ExecStart=/usr/bin/python3 /opt/passive-DDNS/pddns.py --systemd
+
+[Install]
+WantedBy=multi-user.target

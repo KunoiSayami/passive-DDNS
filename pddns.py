@@ -19,47 +19,25 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 import sys
 import time
-import requests
-import os, signal
-from subprocess import Popen
 from configparser import ConfigParser
 import logging
-import bs4
 import libtplink
 import hostkerapi
 import libopenwrt
-
-external_ip_uri = 'https://ipip.net/'
-
-headers = {
-	'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36'
-}
+import libother
 
 logger = logging.getLogger('passive-DDNS')
 
-def get_current_IP():
-	while True:
-		try:
-			return _get_current_IP()
-		except:
-			logger.exception('Exception while get current ip:')
-			time.sleep(5)
-
-def _get_current_IP():
-	r = requests.get(external_ip_uri, headers=headers)
-	r.raise_for_status()
-	try:
-		soup = bs4.BeautifulSoup(r.text, 'lxml')
-	except bs4.FeatureNotFound:
-		soup = bs4.BeautifulSoup(r.text, 'html.parser')
-	ip = soup.find(class_='yourInfo').select('li a')[0].text
-	return ip
-
 def main():
 	logger.debug('Loading configure file')
+
 	config = ConfigParser()
 	config.read('data/config.ini')
+
 	interval = config.getint('account', 'interval', fallback=600)
+	logger.setLevel(config.getint('log', 'level', fallback=logging.INFO))
+	libother.simple_ip.set_url(config.get('account', 'extern_ip_uri', fallback=libother.simple_ip.url))
+
 	tplink_enabled = config.getboolean('tplink', 'enabled', fallback=False)
 	if tplink_enabled:
 		tplink_helper = libtplink.TpLinkHelper(config['tplink']['url'], config['tplink']['password'])
@@ -69,9 +47,10 @@ def main():
 			config.get('openwrt', 'route'),
 			config.get('openwrt', 'user'),
 			config.get('openwrt', 'password'))
-	logger.setLevel(config.getint('log', 'level', fallback=logging.INFO))
+
 	logger.info('Initializtion successful')
 	domain_checker = []
+
 	while True:
 		try:
 			logger.debug('Getting current ip')
@@ -80,7 +59,10 @@ def main():
 			elif openwrt_enabled:
 				now_ip = openwrt_helper.get_ip()
 			else:
-				now_ip = get_current_IP()
+				try:
+					now_ip = libother.ipip.get_ip()
+				except:
+					now_ip = libother.simple_ip.get_ip()
 			logger.debug('Getting dns record ip')
 			data_group = hostkerapi.get_record_ip()
 			logger.debug('Checking records')
@@ -101,26 +83,16 @@ def main():
 			logger.exception('Got unexcepted error')
 			time.sleep(10) # Failsafe
 		else:
-			time.sleep(interval)
-
-def helpmsg():
-	print('Please using `[--daemon, -d] <file name>\' to run this program.\n\tusing `-kill` to kill daemon process (if running)')
+			try:
+				time.sleep(interval)
+			except KeyboardInterrupt:
+				raise SystemExit
 
 if __name__ == '__main__':
-	logging.basicConfig(level=logging.DEBUG, format = '%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
+	logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
 	if len(sys.argv) == 1:
 		main()
 	elif len(sys.argv) == 2:
-		if sys.argv[1] in ('-d', '--daemon'):
-			Popen([sys.executable, sys.argv[0], '--daemon-start'])
-		elif sys.argv[1] == '--daemon-start':
-			with open('pid', 'w') as fout:
-				fout.write(str(os.getpid()))
+		if sys.argv[1] == '--systemd':
+			logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
 			main()
-		elif sys.argv[1] == '-kill':
-			with open('pid') as fin:
-				os.kill(int(fin.read()), signal.SIGINT)
-		else:
-			helpmsg()
-	else:
-		helpmsg()

@@ -6,6 +6,7 @@ token =
 ; header_domain = {'example.com': ['a', 'b'], 'example.moe': ['c']}
 header_domain = {'domain': ['header1', 'header2'], 'domain2': ['header3']}
 interval = 600
+;extern_ip_uri =
 
 [tplink]
 enabled = false
