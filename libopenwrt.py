@@ -35,10 +35,13 @@ class OpenWRTHelper:
 			fout.write(self.session_str)
 
 	def _read_session_str(self) -> str:
-		with open('data/.session', 'r') as fin:
-			self.session_str = fin.read()
-			self.Session.cookies.update({'sysauth': self.session_str})
-		return self.session_str
+		try:
+			with open('data/.session', 'r') as fin:
+				self.session_str = fin.read()
+				self.Session.cookies.update({'sysauth': self.session_str})
+			return self.session_str
+		except FileNotFoundError:
+			return ''
 
 	def check_login(self) -> bool:
 		return self.Session.get(self.route_web + '/cgi-bin/luci/').status_code == 200
