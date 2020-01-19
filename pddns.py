@@ -17,8 +17,8 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
-import sys
 import time
+import os
 from configparser import ConfigParser
 import logging
 import libtplink
@@ -74,7 +74,7 @@ def main():
 				logger.debug('Find %d record need update, update it.', len(domain_checker))
 				for data in domain_checker:
 					hostkerapi.apiRequest('editRecord', data)
-				logger.info('IP change detected, Changed dns ip from to %s', now_ip)
+				logger.info('IP change detected, Changed dns ip to %s', now_ip)
 				domain_checker = []
 		except AssertionError as e:
 			logger.exception('Catched AssertionError, Program will now exit.')
@@ -89,10 +89,9 @@ def main():
 				raise SystemExit
 
 if __name__ == '__main__':
-	logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
-	if len(sys.argv) == 1:
-		main()
-	elif len(sys.argv) == 2:
-		if sys.argv[1] == '--systemd':
-			logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
-			main()
+	if os.getppid() == 1:
+		logging.basicConfig(level=logging.INFO, format='[%(levelname)s]\t%(funcName)s - %(lineno)d - %(message)s')
+	else:
+		logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
+		logger.info('Start program from notrmal mode, show debug message by default.')
+	main()

@@ -18,8 +18,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 from configparser import ConfigParser
-import requests
 import logging
+import re
+import requests
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -38,7 +39,7 @@ def apiRequest(operaction: str = 'getRecord', data: dict = None) -> dict:
 	assert data is None or isinstance(data, dict), 'data param must dict'
 	assert isinstance(operaction, str)
 	assert operaction in szapiTarget, 'operation `{}\' not support'.format(operaction)
-	t = {'email':config['account']['email'], 'token':config['account']['token']}
+	t = {'email': config['account']['email'], 'token': config['account']['token']}
 	if data is not None:
 		t.update(data)
 	r = requests.post(szapiTarget[operaction], t)
@@ -46,22 +47,14 @@ def apiRequest(operaction: str = 'getRecord', data: dict = None) -> dict:
 	rjson = r.json()
 	#r.close()
 	if rjson['success'] != 1:
-		logger.error('Error in apiRequest()! (errorMessage:`%s\')',rjson['errorMessage'])
+		logger.error('Error in apiRequest()! (errorMessage:`%s\')', rjson['errorMessage'])
 		logger.debug('operaction=`%s\', request_uri = `%s\', data=`%s\', t=`%s\'', operaction, szapiTarget[operaction], repr(data), repr(t))
 	return rjson
 
 def get_record_ip_ex(domain: str, headers: list) -> list:
-	r = apiRequest(data={'domain': domain})
-	#print(r['records'])
-	record_ip = []
-	for x in r['records']:
-		if x['header'] in headers:
-			record_ip.append(x)
-	return record_ip
+	return [x for x in apiRequest(data={'domain': domain})['records'] if x['header'] in headers]
 
 def get_record_ip() -> dict:
-	if config.has_option('account', 'domain'):
-		return {config['account']['domain']: get_record_ip_ex(config['account']['domain'], [config['account']['header']])}
-	else:
-		header_domain = eval(config['account']['header_domain'])
-		return {domain: get_record_ip_ex(domain, header_domain[domain]) for domain, _ in header_domain.items()}
+	header_domain = {x[0][1:-1]: re.findall(r'\'([^\']+)\'', x[1]) for x in map(lambda x: x.split(':'),
+			map(lambda x: x.strip(), config.get('account', 'header_domain')[1:-1].split('],')))}
+	return {domain: get_record_ip_ex(domain, header_domain[domain]) for domain, _ in header_domain.items()}
