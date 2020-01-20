@@ -49,6 +49,7 @@ class OpenWRTHelper:
 	def do_login(self) -> bool:
 		if self.check_login():
 			return True
+		self.Session.cookies.clear()
 		r = self.Session.post(f'{self.route_web}/cgi-bin/luci',
 				data={'luci_username': self.user, 'luci_password': self.password},
 				allow_redirects=False)
