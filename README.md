@@ -12,6 +12,10 @@ Copy `config.ini.default` to `config.ini`, parse your `email`, `token`, `header_
 python pddns.py
 ```
 
+### Reload
+
+Send `SIGUSR1` signal to main process for skip waiting.
+
 ## License
 
 [![](https://www.gnu.org/graphics/agplv3-155x51.png)](https://www.gnu.org/licenses/agpl-3.0.txt)

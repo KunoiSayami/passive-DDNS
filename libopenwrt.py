@@ -17,8 +17,9 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
-import requests
 import time
+import logging
+import requests
 
 class OpenWRTHelper:
 	class OtherError(Exception): pass
@@ -28,11 +29,16 @@ class OpenWRTHelper:
 		self.user = user
 		self.password = password
 		self.Session = requests.Session()
+		self.logger = logging.getLogger('OpenWRTHelper')
+		self.logger.setLevel(logging.INFO)
 		self.session_str = self._read_session_str()
 
 	def _write_session_str(self):
-		with open('data/.session', 'w') as fout:
-			fout.write(self.session_str)
+		try:
+			with open('data/.session', 'w') as fout:
+				fout.write(self.session_str)
+		except PermissionError:
+			self.logger.warning('Got permission error while write session file, ignored.')
 
 	def _read_session_str(self) -> str:
 		try:
@@ -61,9 +67,10 @@ class OpenWRTHelper:
 	def get_ip(self) -> str:
 		if not self.check_login():
 			self.do_login()
-		r = self.Session.post(f'{self.route_web}/ubus/?{time.time()}',
+		r = self.Session.post(f'{self.route_web}/ubus/?{int(time.time())}',
 				json=[{'jsonrpc': '2.0', 'id': 1, 'method': 'call', 'params': [self.session_str, 'network.interface', 'dump', {}]}])
 		raw_data = r.json()[0]
+		self.logger.debug('json object => %s', repr(raw_data))
 		if raw_data.get('error') is None:
 			for interface in raw_data.get('result')[1].get('interface'):
 				if interface.get('interface') == 'wan':

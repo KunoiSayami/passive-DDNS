@@ -8,7 +8,8 @@ User=nobody
 Restart=on-failure
 RestartSec=5s
 WorkingDirectory=/opt/passive-DDNS
-ExecStart=/usr/bin/python3 /opt/passive-DDNS/pddns.py --systemd
+ExecStart=/usr/bin/python3 /opt/passive-DDNS/pddns.py
+ExecReload=/bin/kill -10 $MAINPID
 
 [Install]
 WantedBy=multi-user.target

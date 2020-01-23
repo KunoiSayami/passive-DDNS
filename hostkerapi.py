@@ -20,41 +20,55 @@
 from configparser import ConfigParser
 import logging
 import re
+import time
 import requests
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+class HostkerApiHelper:
+	apiTarget = {
+		'getRecord':'https://i.hostker.com/api/dnsGetRecords',
+		'addRecord':'https://i.hostker.com/api/dnsAddRecord',
+		'editRecord':'https://i.hostker.com/api/dnsEditRecord',
+		'delRecord':'https://i.hostker.com/api/dnsDeleteRecord',
+	}
+	def __init__(self, config: ConfigParser):
+		self.logger = logging.getLogger(__name__)
+		self.logger.setLevel(logging.DEBUG)
+		self.header_domain = {x[0][1:-1]: re.findall(r'\'([^\']+)\'', x[1]) for x in map(lambda x: x.split(':'),
+				map(lambda x: x.strip(), config.get('account', 'header_domain')[1:-1].split('],')))}
+		self.token = {'email': config['account']['email'], 'token': config['account']['token']}
+		self._cache_time = config.getint('account', 'ns_cache', fallback=30 * 60)
+		self._last_get_ip_request = 0
+		self._ip_cache = {}
 
-szapiTarget = {
-	'getRecord':'https://i.hostker.com/api/dnsGetRecords',
-	'addRecord':'https://i.hostker.com/api/dnsAddRecord',
-	'editRecord':'https://i.hostker.com/api/dnsEditRecord',
-	'delRecord':'https://i.hostker.com/api/dnsDeleteRecord',
-}
+	def apiRequest(self, operaction: str = 'getRecord', data: dict = None) -> dict:
+		assert data is None or isinstance(data, dict), 'data param must dict'
+		assert isinstance(operaction, str)
+		assert operaction in self.apiTarget, 'operation `{}\' not support'.format(operaction)
+		t = self.token.copy()
+		if data is not None:
+			t.update(data)
+		r = requests.post(self.apiTarget[operaction], t)
+		r.raise_for_status()
+		rjson = r.json()
+		#r.close()
+		if rjson['success'] != 1:
+			self.logger.error('Error in apiRequest()! (errorMessage:`%s\')', rjson['errorMessage'])
+			self.logger.debug('operaction=`%s\', request_uri = `%s\', data=`%s\', t=`%s\'', operaction, self.apiTarget[operaction], repr(data), repr(t))
+		return rjson
 
-config = ConfigParser()
-config.read('data/config.ini')
+	def get_record_ip_ex(self, domain: str, headers: list) -> list:
+		return [x for x in self.apiRequest(data={'domain': domain})['records'] if x['header'] in headers]
 
-def apiRequest(operaction: str = 'getRecord', data: dict = None) -> dict:
-	assert data is None or isinstance(data, dict), 'data param must dict'
-	assert isinstance(operaction, str)
-	assert operaction in szapiTarget, 'operation `{}\' not support'.format(operaction)
-	t = {'email': config['account']['email'], 'token': config['account']['token']}
-	if data is not None:
-		t.update(data)
-	r = requests.post(szapiTarget[operaction], t)
-	r.raise_for_status()
-	rjson = r.json()
-	#r.close()
-	if rjson['success'] != 1:
-		logger.error('Error in apiRequest()! (errorMessage:`%s\')', rjson['errorMessage'])
-		logger.debug('operaction=`%s\', request_uri = `%s\', data=`%s\', t=`%s\'', operaction, szapiTarget[operaction], repr(data), repr(t))
-	return rjson
-
-def get_record_ip_ex(domain: str, headers: list) -> list:
-	return [x for x in apiRequest(data={'domain': domain})['records'] if x['header'] in headers]
-
-def get_record_ip() -> dict:
-	header_domain = {x[0][1:-1]: re.findall(r'\'([^\']+)\'', x[1]) for x in map(lambda x: x.split(':'),
-			map(lambda x: x.strip(), config.get('account', 'header_domain')[1:-1].split('],')))}
-	return {domain: get_record_ip_ex(domain, header_domain[domain]) for domain, _ in header_domain.items()}
+	def _get_record_ip(self) -> dict:
+		return {domain: self.get_record_ip_ex(domain, self.header_domain[domain]) for domain, _ in self.header_domain.items()}
+	
+	def get_record_ip(self) -> dict:
+		if time.time() - self._last_get_ip_request <= self._cache_time:
+			return self._ip_cache
+		self._ip_cache = self._get_record_ip()
+		self._last_get_ip_request = time.time()
+		#return self.get_record_ip()
+		return self._ip_cache
+	
+	def reset_cache_time(self):
+		self._cache_time = 0
