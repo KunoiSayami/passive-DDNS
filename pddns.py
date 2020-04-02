@@ -111,5 +111,5 @@ if __name__ == '__main__':
 		logging.basicConfig(level=logging.INFO, format='[%(levelname)s]\t%(funcName)s - %(lineno)d - %(message)s')
 	else:
 		logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
-		logging.getLogger('passive-DDNS').info('Start program from notrmal mode, show debug message by default.')
+		logging.getLogger('passive-DDNS').info('Start program from normal mode, show debug message by default.')
 	DDNS().run()

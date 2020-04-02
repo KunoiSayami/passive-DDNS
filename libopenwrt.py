@@ -17,9 +17,12 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
-import time
 import logging
+import time
+from typing import NoReturn
+
 import requests
+
 
 class OpenWRTHelper:
 	class OtherError(Exception): pass
@@ -30,10 +33,10 @@ class OpenWRTHelper:
 		self.password = password
 		self.Session = requests.Session()
 		self.logger = logging.getLogger('OpenWRTHelper')
-		self.logger.setLevel(logging.INFO)
+		self.logger.setLevel(logging.DEBUG)
 		self.session_str = self._read_session_str()
 
-	def _write_session_str(self):
+	def _write_session_str(self) -> NoReturn:
 		try:
 			with open('data/.session', 'w') as fout:
 				fout.write(self.session_str)
@@ -52,8 +55,8 @@ class OpenWRTHelper:
 	def check_login(self) -> bool:
 		return self.Session.get(self.route_web + '/cgi-bin/luci/').status_code == 200
 
-	def do_login(self) -> bool:
-		if self.check_login():
+	def do_login(self, force: bool=False) -> bool:
+		if not force and self.check_login():
 			return True
 		self.Session.cookies.clear()
 		r = self.Session.post(f'{self.route_web}/cgi-bin/luci',
@@ -64,9 +67,8 @@ class OpenWRTHelper:
 		self._write_session_str()
 		return self.check_login()
 
-	def get_ip(self) -> str:
-		if not self.check_login():
-			self.do_login()
+	def get_ip(self, relogin: bool=False) -> str:
+		self.do_login(relogin)
 		r = self.Session.post(f'{self.route_web}/ubus/?{int(time.time())}',
 				json=[{'jsonrpc': '2.0', 'id': 1, 'method': 'call', 'params': [self.session_str, 'network.interface', 'dump', {}]}])
 		raw_data = r.json()[0]
@@ -76,7 +78,10 @@ class OpenWRTHelper:
 				if interface.get('interface') == 'wan':
 					return interface.get('ipv4-address')[0].get('address')
 		else:
-			raise OpenWRTHelper.OtherError()
+			if raw_data['error']['message'] == 'Access denied':
+				return self.get_ip(True)
+			else:
+				raise OpenWRTHelper.OtherError()
 
 if __name__ == "__main__":
 	print(OpenWRTHelper('127.0.0.1', 'root', '').get_ip())
