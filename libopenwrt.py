@@ -26,15 +26,19 @@ import requests
 
 class OpenWRTHelper:
 	class OtherError(Exception): pass
+	
+	class MaxRetryError(Exception): pass
 
 	def __init__(self, route_ip: str, user: str, password: str):
-		self.route_web = f'http://{route_ip}'
-		self.user = user
-		self.password = password
-		self.Session = requests.Session()
-		self.logger = logging.getLogger('OpenWRTHelper')
+		self.route_web: str = f'http://{route_ip}'
+		self.user: str = user
+		self.password: str = password
+		self.Session: requests.Session = requests.Session()
+		self.logger: logging.Logger = logging.getLogger('OpenWRTHelper')
 		self.logger.setLevel(logging.DEBUG)
-		self.session_str = self._read_session_str()
+		self.session_str: str = self._read_session_str()
+
+		self.v2_work: bool = None
 
 	def _write_session_str(self) -> NoReturn:
 		try:
@@ -68,6 +72,22 @@ class OpenWRTHelper:
 		return self.check_login()
 
 	def get_ip(self, relogin: bool=False) -> str:
+		if self.v2_work is None:
+			try:
+				ip = self.get_ip_v1(relogin)
+				self.v2_work = False
+			except OpenWRTHelper.MaxRetryError:
+				ip = self.get_ip_v2(relogin)
+				self.v2_work = True
+		elif self.v2_work:
+			ip = self.get_ip_v2(relogin)
+		else:
+			ip = self.get_ip_v1(relogin)
+		return ip
+
+	def get_ip_v1(self, relogin: bool=False, retries: int=3) -> str:
+		if retries == 0:
+			raise OpenWRTHelper.MaxRetryError()
 		self.do_login(relogin)
 		r = self.Session.post(f'{self.route_web}/ubus/?{int(time.time())}',
 				json=[{'jsonrpc': '2.0', 'id': 1, 'method': 'call', 'params': [self.session_str, 'network.interface', 'dump', {}]}])
@@ -79,9 +99,14 @@ class OpenWRTHelper:
 					return interface.get('ipv4-address')[0].get('address')
 		else:
 			if raw_data['error']['message'] == 'Access denied':
-				return self.get_ip(True)
+				return self.get_ip_v1(True, retries=retries - 1)
 			else:
 				raise OpenWRTHelper.OtherError()
+	
+	def get_ip_v2(self, relogin: bool=False) -> str:
+		self.do_login(relogin)
+		r = self.Session.get(f'{self.route_web}/cgi-bin/luci/?status=1&_={time.time()}')
+		return r.json()['wan']['ipaddr']
 
 if __name__ == "__main__":
 	print(OpenWRTHelper('127.0.0.1', 'root', '').get_ip())

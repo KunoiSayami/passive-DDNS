@@ -17,8 +17,9 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
-import time
 import logging
+import time
+
 import bs4
 import requests
 
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 class ipip:
 	@staticmethod
-	def get_ip():
+	def get_ip() -> str:
 		while True:
 			try:
 				return _get_current_IP()
@@ -35,7 +36,7 @@ class ipip:
 				time.sleep(5)
 
 	@staticmethod
-	def _get_current_IP():
+	def _get_current_IP() -> str:
 		r = requests.get('https://ipip.net/', headers={
 			'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36'
 		})
@@ -50,11 +51,11 @@ class ipip:
 class simple_ip:
 	url = 'https://api.ip.sb/ip'
 	@staticmethod
-	def get_ip():
+	def get_ip() -> str:
 		r = requests.get(simple_ip.url)
 		r.raise_for_status()
 		return r.text
 
 	@staticmethod
-	def set_url(url: str):
+	def set_url(url: str) -> str:
 		simple_ip.url = url

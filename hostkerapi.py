@@ -17,11 +17,14 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
-from configparser import ConfigParser
 import logging
 import re
 import time
+from configparser import ConfigParser
+from typing import Dict, List, NoReturn, T
+
 import requests
+
 
 class HostkerApiHelper:
 	apiTarget = {
@@ -40,7 +43,7 @@ class HostkerApiHelper:
 		self._last_get_ip_request = 0
 		self._ip_cache = {}
 
-	def apiRequest(self, operaction: str = 'getRecord', data: dict = None) -> dict:
+	def api_request(self, operaction: str, data: Dict[str, str]) -> Dict[str, T]:
 		assert data is None or isinstance(data, dict), 'data param must dict'
 		assert isinstance(operaction, str)
 		assert operaction in self.apiTarget, 'operation `{}\' not support'.format(operaction)
@@ -52,17 +55,17 @@ class HostkerApiHelper:
 		rjson = r.json()
 		#r.close()
 		if rjson['success'] != 1:
-			self.logger.error('Error in apiRequest()! (errorMessage:`%s\')', rjson['errorMessage'])
+			self.logger.error('Error in api_request()! (errorMessage:`%s\')', rjson['errorMessage'])
 			self.logger.debug('operaction=`%s\', request_uri = `%s\', data=`%s\', t=`%s\'', operaction, self.apiTarget[operaction], repr(data), repr(t))
 		return rjson
 
-	def get_record_ip_ex(self, domain: str, headers: list) -> list:
-		return [x for x in self.apiRequest(data={'domain': domain})['records'] if x['header'] in headers]
+	def get_record_ip_ex(self, domain: str, headers: List[str]) -> List[Dict[str, str]]:
+		return [x for x in self.api_request('getRecord', {'domain': domain})['records'] if x['header'] in headers]
 
-	def _get_record_ip(self) -> dict:
+	def _get_record_ip(self) -> Dict[str, T]:
 		return {domain: self.get_record_ip_ex(domain, self.header_domain[domain]) for domain, _ in self.header_domain.items()}
 	
-	def get_record_ip(self) -> dict:
+	def get_record_ip(self) -> Dict[str, str]:
 		if time.time() - self._last_get_ip_request <= self._cache_time:
 			return self._ip_cache
 		self._ip_cache = self._get_record_ip()
@@ -70,5 +73,5 @@ class HostkerApiHelper:
 		#return self.get_record_ip()
 		return self._ip_cache
 	
-	def reset_cache_time(self):
+	def reset_cache_time(self) -> NoReturn:
 		self._cache_time = 0

@@ -17,53 +17,57 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
-import time
-import os
-from configparser import ConfigParser
-import signal
 import logging
-import libtplink
+import os
+import signal
+import time
+from configparser import ConfigParser
+
 import hostkerapi
 import libopenwrt
 import libother
+import libtplink
+
+from typing import NoReturn, List
+
 
 class DDNS:
 	def __init__(self):
 		config = ConfigParser()
 		config.read('data/config.ini')
 
-		self.logger = logging.getLogger('passive-DDNS')
+		self.logger: logging.Logger = logging.getLogger('passive-DDNS')
 		self.logger.setLevel(config.getint('log', 'level', fallback=logging.INFO))
 
 		self.logger.debug('Loading configure file')
 
-		self.interval = config.getint('account', 'interval', fallback=600)
+		self.interval: int = config.getint('account', 'interval', fallback=600)
 		libother.simple_ip.set_url(config.get('account', 'extern_ip_uri', fallback=libother.simple_ip.url))
 
-		self.tplink_enabled = config.getboolean('tplink', 'enabled', fallback=False)
+		self.tplink_enabled: bool = config.getboolean('tplink', 'enabled', fallback=False)
 		if self.tplink_enabled:
-			self.tplink_helper = libtplink.TpLinkHelper(config['tplink']['url'], config['tplink']['password'])
-		self.openwrt_enabled = config.getboolean('openwrt', 'enabled', fallback=False)
+			self.tplink_helper: libtplink.TpLinkHelper = libtplink.TpLinkHelper(config['tplink']['url'], config['tplink']['password'])
+		self.openwrt_enabled: bool = config.getboolean('openwrt', 'enabled', fallback=False)
 		if self.openwrt_enabled:
-			self.openwrt_helper = libopenwrt.OpenWRTHelper(
+			self.openwrt_helper: libopenwrt.OpenWRTHelper = libopenwrt.OpenWRTHelper(
 				config.get('openwrt', 'route'),
 				config.get('openwrt', 'user'),
 				config.get('openwrt', 'password'))
 
-		self.api_helper =  hostkerapi.HostkerApiHelper(config)
+		self.api_helper: hostkerapi.HostkerApiHelper =  hostkerapi.HostkerApiHelper(config)
 
 		self.logger.info('Initializtion successful')
-		self.domain_checker = []
-		self._reload_request = False
+		self.domain_checker: List[str] = []
+		self._reload_request: bool = False
 		signal.signal(10, self.handle_reload)
 
-	def handle_reload(self, *_args):
+	def handle_reload(self, *_args) -> NoReturn:
 		self.logger.info('Got reload request, refreshing IP status')
 		self.api_helper.reset_cache_time()
 		self._reload_request = True
 		os.kill(os.getpid(), signal.SIGINT)
 
-	def run(self):
+	def run(self) -> NoReturn:
 		while True:
 			try:
 				self.logger.debug('Getting current ip')
@@ -86,7 +90,7 @@ class DDNS:
 				if self.domain_checker:
 					self.logger.debug('Find %d record need update, update it.', len(self.domain_checker))
 					for data in self.domain_checker:
-						self.api_helper.apiRequest('editRecord', data)
+						self.api_helper.api_request('editRecord', data)
 					self.logger.info('IP change detected, Changed dns ip to %s', now_ip)
 					self.domain_checker = []
 			except AssertionError as e:
