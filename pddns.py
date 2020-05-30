@@ -77,9 +77,9 @@ class DDNS:
 					now_ip = self.openwrt_helper.get_ip()
 				else:
 					try:
-						now_ip = libother.ipip.get_ip()
-					except:
 						now_ip = libother.simple_ip.get_ip()
+					except:
+						now_ip = libother.ipip.get_ip()
 				self.logger.debug('Getting dns record ip')
 				data_group = self.api_helper.get_record_ip()
 				self.logger.debug('Checking records')

@@ -30,7 +30,7 @@ class ipip:
 	def get_ip() -> str:
 		while True:
 			try:
-				return _get_current_IP()
+				return ipip._get_current_IP()
 			except:
 				logger.exception('Exception while get current ip:')
 				time.sleep(5)
@@ -49,7 +49,7 @@ class ipip:
 		return ip
 
 class simple_ip:
-	url = 'https://api.ip.sb/ip'
+	url = 'https://api-ipv4.ip.sb/ip'
 	@staticmethod
 	def get_ip() -> str:
 		r = requests.get(simple_ip.url)

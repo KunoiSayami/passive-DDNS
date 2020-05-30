@@ -19,7 +19,7 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 import logging
 import time
-from typing import NoReturn
+from typing import Optional
 
 import requests
 
@@ -28,6 +28,8 @@ class OpenWRTHelper:
 	class OtherError(Exception): pass
 	
 	class MaxRetryError(Exception): pass
+
+	class UnknownError(Exception): pass
 
 	def __init__(self, route_ip: str, user: str, password: str):
 		self.route_web: str = f'http://{route_ip}'
@@ -38,9 +40,9 @@ class OpenWRTHelper:
 		self.logger.setLevel(logging.DEBUG)
 		self.session_str: str = self._read_session_str()
 
-		self.v2_work: bool = None
+		self.v2_work: Optional[bool] = None
 
-	def _write_session_str(self) -> NoReturn:
+	def _write_session_str(self) -> None:
 		try:
 			with open('data/.session', 'w') as fout:
 				fout.write(self.session_str)
@@ -76,7 +78,7 @@ class OpenWRTHelper:
 			try:
 				ip = self.get_ip_v1(relogin)
 				self.v2_work = False
-			except OpenWRTHelper.MaxRetryError:
+			except OpenWRTHelper.UnknownError:
 				ip = self.get_ip_v2(relogin)
 				self.v2_work = True
 		elif self.v2_work:
@@ -85,9 +87,7 @@ class OpenWRTHelper:
 			ip = self.get_ip_v1(relogin)
 		return ip
 
-	def get_ip_v1(self, relogin: bool=False, retries: int=3) -> str:
-		if retries == 0:
-			raise OpenWRTHelper.MaxRetryError()
+	def get_ip_v1(self, relogin: bool=False) -> str:
 		self.do_login(relogin)
 		r = self.Session.post(f'{self.route_web}/ubus/?{int(time.time())}',
 				json=[{'jsonrpc': '2.0', 'id': 1, 'method': 'call', 'params': [self.session_str, 'network.interface', 'dump', {}]}])
@@ -99,7 +99,10 @@ class OpenWRTHelper:
 					return interface.get('ipv4-address')[0].get('address')
 		else:
 			if raw_data['error']['message'] == 'Access denied':
-				return self.get_ip_v1(True, retries=retries - 1)
+				if relogin:
+					raise OpenWRTHelper.UnknownError()
+				else:
+					return self.get_ip_v1(True)
 			else:
 				raise OpenWRTHelper.OtherError()
 	
