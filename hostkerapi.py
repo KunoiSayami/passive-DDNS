@@ -21,9 +21,11 @@ import logging
 import re
 import time
 from configparser import ConfigParser
-from typing import Dict, List, NoReturn, T
+from typing import Dict, List, TypeVar
 
 import requests
+
+T = TypeVar('T')
 
 
 class HostkerApiHelper:
@@ -37,9 +39,9 @@ class HostkerApiHelper:
 		self.logger = logging.getLogger(__name__)
 		self.logger.setLevel(logging.DEBUG)
 		self.header_domain = {x[0][1:-1]: re.findall(r'\'([^\']+)\'', x[1]) for x in map(lambda x: x.split(':'),
-				map(lambda x: x.strip(), config.get('account', 'header_domain')[1:-1].split('],')))}
-		self.token = {'email': config['account']['email'], 'token': config['account']['token']}
-		self._cache_time = config.getint('account', 'ns_cache', fallback=30 * 60)
+				map(lambda x: x.strip(), config.get('hostker', 'header_domain')[1:-1].split('],')))}
+		self.token = {'email': config['hostker']['email'], 'token': config['hostker']['token']}
+		self._cache_time = config.getint('hostker', 'ns_cache', fallback=30 * 60)
 		self._last_get_ip_request = 0
 		self._ip_cache = {}
 
@@ -73,5 +75,5 @@ class HostkerApiHelper:
 		#return self.get_record_ip()
 		return self._ip_cache
 	
-	def reset_cache_time(self) -> NoReturn:
+	def reset_cache_time(self) -> None:
 		self._cache_time = 0

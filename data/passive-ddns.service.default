@@ -10,6 +10,9 @@ RestartSec=5s
 WorkingDirectory=/opt/passive-DDNS
 ExecStart=/usr/bin/python3 /opt/passive-DDNS/hostkerddns.py
 ExecReload=/bin/kill -10 $MAINPID
+ExecStop=/usr/bin/python3 /opt/passive-DDNS/absddns.py stop $MAINPID
+TimeoutStopSec=5s
 
 [Install]
 WantedBy=multi-user.target
+

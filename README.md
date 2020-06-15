@@ -1,10 +1,10 @@
 # passive-DDNS
 
-Design for [hostker](https://zhujike.com), It use in has public IP home network to auto change A record which domain use hostker ns.
+Design for [CloudFlare](https://cloudflare.com) and [hostker](https://zhujike.com), It use in has public IP home network to auto change `A` record which domain use cloudflare/hostker ns.
 
 ## Usage
 
-In principle, need Python 3.5.x interpreter. And `requests`, `bs4` library must avaliable. (_Note: Python 2 is no longer support_)
+In principle, need Python 3.7.x interpreter. And `requests`, `bs4` library must avaliable.
 
 Copy `config.ini.default` to `config.ini`, parse your `email`, `token`, `header_domain`, in configure file. Then, using this command to run program:
 

@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 import logging
+import sys
 import os
 import signal
 import time
@@ -90,6 +91,7 @@ class AbstractDDNS(metaclass=ABCMeta):
 					time.sleep(self.interval)
 				except KeyboardInterrupt:
 					if not self._reload_request:
+						self.close()
 						raise SystemExit
 					else:
 						self._reload_request = False
@@ -97,5 +99,16 @@ class AbstractDDNS(metaclass=ABCMeta):
 					continue
 
 	@abstractmethod
+	def close(self) -> None:
+		return NotImplemented
+
+	@abstractmethod
 	def do_ip_update(self, _now_ip: str) -> None:
 		return NotImplemented
+
+if __name__ == "__main__":
+	if len(sys.argv) == 3:
+		if sys.argv[1] == 'stop':
+			import subprocess
+			os.kill(int(sys.argv[2]), 2)
+			subprocess.Popen(['/usr/bin/tail', f'--pid={int(sys.argv[2])}', '-f', '/dev/null']).wait()
