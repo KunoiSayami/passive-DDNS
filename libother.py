@@ -19,18 +19,26 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 import logging
 import time
+from abc import ABCMeta, abstractclassmethod
 
 import bs4
 import requests
 
 logger = logging.getLogger(__name__)
 
-class ipip:
-	@staticmethod
-	def get_ip() -> str:
+class IPQuery(metaclass=ABCMeta):
+
+	@abstractclassmethod
+	def get_ip(cls) -> str:
+		return NotImplemented
+
+
+class IPIPdotNet(IPQuery):
+	@classmethod
+	def get_ip(cls) -> str:
 		while True:
 			try:
-				return ipip._get_current_IP()
+				return cls._get_current_IP()
 			except:
 				logger.exception('Exception while get current ip:')
 				time.sleep(5)
@@ -48,14 +56,15 @@ class ipip:
 		ip = soup.find(class_='yourInfo').select('li a')[0].text
 		return ip
 
-class simple_ip:
+class SimpleIPQuery(IPQuery):
 	url = 'https://api-ipv4.ip.sb/ip'
-	@staticmethod
-	def get_ip() -> str:
-		r = requests.get(simple_ip.url)
+	@classmethod
+	def get_ip(cls) -> str:
+		r = requests.get(cls.url)
 		r.raise_for_status()
 		return r.text
 
-	@staticmethod
-	def set_url(url: str) -> str:
-		simple_ip.url = url
+	@classmethod
+	def set_url(cls, url: str) -> str:
+		cls.url = url
+		return url

@@ -8,7 +8,7 @@ User=nobody
 Restart=on-failure
 RestartSec=5s
 WorkingDirectory=/opt/passive-DDNS
-ExecStart=/usr/bin/python3 /opt/passive-DDNS/pddns.py
+ExecStart=/usr/bin/python3 /opt/passive-DDNS/hostkerddns.py
 ExecReload=/bin/kill -10 $MAINPID
 
 [Install]

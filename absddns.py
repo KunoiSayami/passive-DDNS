@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# pddns.py
+# absddns.py
 # Copyright (C) 2018-2020 KunoiSayami and contributors
 #
 # This module is part of passive-DDNS and is released under
@@ -21,17 +21,15 @@ import logging
 import os
 import signal
 import time
+from abc import ABCMeta, abstractmethod
 from configparser import ConfigParser
 
-import hostkerapi
 import libopenwrt
 import libother
 import libtplink
 
-from typing import NoReturn, List
 
-
-class DDNS:
+class AbstractDDNS(metaclass=ABCMeta):
 	def __init__(self):
 		config = ConfigParser()
 		config.read('data/config.ini')
@@ -42,7 +40,7 @@ class DDNS:
 		self.logger.debug('Loading configure file')
 
 		self.interval: int = config.getint('account', 'interval', fallback=600)
-		libother.simple_ip.set_url(config.get('account', 'extern_ip_uri', fallback=libother.simple_ip.url))
+		libother.SimpleIPQuery.set_url(config.get('account', 'extern_ip_uri', fallback=libother.SimpleIPQuery.url))
 
 		self.tplink_enabled: bool = config.getboolean('tplink', 'enabled', fallback=False)
 		if self.tplink_enabled:
@@ -54,20 +52,20 @@ class DDNS:
 				config.get('openwrt', 'user'),
 				config.get('openwrt', 'password'))
 
-		self.api_helper: hostkerapi.HostkerApiHelper =  hostkerapi.HostkerApiHelper(config)
-
-		self.logger.info('Initializtion successful')
-		self.domain_checker: List[str] = []
 		self._reload_request: bool = False
-		signal.signal(10, self.handle_reload)
+		signal.signal(10, self._handle_reload)
 
-	def handle_reload(self, *_args) -> NoReturn:
+	@abstractmethod
+	def handle_reload(self) -> None:
+		return NotImplemented
+
+	def _handle_reload(self, *_args) -> None:
 		self.logger.info('Got reload request, refreshing IP status')
-		self.api_helper.reset_cache_time()
+		self.handle_reload()
 		self._reload_request = True
 		os.kill(os.getpid(), signal.SIGINT)
 
-	def run(self) -> NoReturn:
+	def run(self) -> None:
 		while True:
 			try:
 				self.logger.debug('Getting current ip')
@@ -77,22 +75,10 @@ class DDNS:
 					now_ip = self.openwrt_helper.get_ip()
 				else:
 					try:
-						now_ip = libother.simple_ip.get_ip()
+						now_ip = libother.SimpleIPQuery.get_ip()
 					except:
-						now_ip = libother.ipip.get_ip()
-				self.logger.debug('Getting dns record ip')
-				data_group = self.api_helper.get_record_ip()
-				self.logger.debug('Checking records')
-				for _domain, headers_data in data_group.items():
-					for header_data in headers_data:
-						if now_ip != header_data['data']:
-							self.domain_checker.append({'id': header_data['id'], 'data': now_ip, 'ttl': header_data['ttl']})
-				if self.domain_checker:
-					self.logger.debug('Find %d record need update, update it.', len(self.domain_checker))
-					for data in self.domain_checker:
-						self.api_helper.api_request('editRecord', data)
-					self.logger.info('IP change detected, Changed dns ip to %s', now_ip)
-					self.domain_checker = []
+						now_ip = libother.IPIPdotNet.get_ip()
+				self.do_ip_update(now_ip)
 			except AssertionError as e:
 				self.logger.exception('Catched AssertionError, Program will now exit.')
 				raise e
@@ -110,10 +96,6 @@ class DDNS:
 						self.logger.debug('Reset reload request')
 					continue
 
-if __name__ == '__main__':
-	if os.getppid() == 1:
-		logging.basicConfig(level=logging.INFO, format='[%(levelname)s]\t%(funcName)s - %(lineno)d - %(message)s')
-	else:
-		logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
-		logging.getLogger('passive-DDNS').info('Start program from normal mode, show debug message by default.')
-	DDNS().run()
+	@abstractmethod
+	def do_ip_update(self, _now_ip: str) -> None:
+		return NotImplemented
