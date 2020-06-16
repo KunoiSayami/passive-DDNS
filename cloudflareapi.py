@@ -24,9 +24,6 @@ from typing import Dict, Generator, List, TypeVar
 
 import requests
 
-import absddns
-from absddns import AbstractDDNS
-
 FixedType = TypeVar('FixedType', bool, str, int)
 
 @dataclass
@@ -45,7 +42,7 @@ class DNSRecord:
 
 	def update_dns(self, session: requests.Session, change_to_ip: str) -> None:
 		self.content = change_to_ip
-		r = session.put(f'https://api.cloudflare.com/client/v4/zones/{self.zone_id}/dns_records/{self.id}', data=self.get_params())
+		r = session.put(f'https://api.cloudflare.com/client/v4/zones/{self.zone_id}/dns_records/{self.id}', json=self.get_params())
 		r.raise_for_status()
 	
 	def get_params(self) -> Dict[str, FixedType]:
@@ -71,28 +68,17 @@ class CloudFlareApi:
 			for x in item:
 				yield DNSRecord.create(self.get_domain_record(key, x))
 
-	def update_records(self, change_to_ip: str) -> None:
+	def update_records(self, change_to_ip: str) -> bool:
+		is_update: bool = False
 		for record in self.get_records():
-			record.update_dns(self.session, change_to_ip)
+			if record.content != change_to_ip:
+				is_update = True
+				record.update_dns(self.session, change_to_ip)
+		return is_update
 
 	def close(self) -> None:
 		self.session.close()
 
-class CloudFlareDDNS(AbstractDDNS):
-	def __init__(self):
-		super().__init__()
-		config = ConfigParser()
-		config.read('data/config.ini')
-		self.cloudflare_api = CloudFlareApi(config)
-	
-	def do_ip_update(self, now_ip: str) -> None:
-		self.cloudflare_api.update_records(now_ip)
-	
-	def handle_reload(self) -> None:
-		pass
-
-	def close(self) -> None:
-		self.cloudflare_api.close()
 
 def test():
 	config = ConfigParser()
@@ -102,8 +88,5 @@ def test():
 		print(record)
 	c.close()
 
-def main():
-	pass
-
 if __name__ == "__main__":
-	main() 
+	test()

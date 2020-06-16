@@ -17,8 +17,6 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
-import logging
-import os
 from configparser import ConfigParser
 from typing import List
 
@@ -46,22 +44,14 @@ class HostkerDDNS(AbstractDDNS):
 		self.logger.debug('Checking records')
 		for _domain, headers_data in data_group.items():
 			for header_data in headers_data:
-				if now_ip != header_data['data']:
-					self.domain_checker.append({'id': header_data['id'], 'data': now_ip, 'ttl': header_data['ttl']})
+				if now_ip != header_data['data']: # type: ignore
+					self.domain_checker.append({'id': header_data['id'], 'data': now_ip, 'ttl': header_data['ttl']}) # type: ignore
 		if self.domain_checker:
 			self.logger.debug('Find %d record need update, update it.', len(self.domain_checker))
 			for data in self.domain_checker:
-				self.api_helper.api_request('editRecord', data)
+				self.api_helper.api_request('editRecord', data) # type: ignore
 			self.logger.info('IP change detected, Changed dns ip to %s', now_ip)
 			self.domain_checker = []
 
 	def close(self) -> None:
 		pass
-
-if __name__ == '__main__':
-	if os.getppid() == 1:
-		logging.basicConfig(level=logging.INFO, format='[%(levelname)s]\t%(funcName)s - %(lineno)d - %(message)s')
-	else:
-		logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
-		logging.getLogger('passive-DDNS').info('Start program from normal mode, show debug message by default.')
-	HostkerDDNS().run()
