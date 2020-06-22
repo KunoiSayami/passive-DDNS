@@ -25,6 +25,8 @@ import time
 from abc import ABCMeta, abstractmethod
 from configparser import ConfigParser
 
+import requests
+
 import libopenwrt
 import libother
 import libtplink
@@ -36,7 +38,11 @@ class AbstractDDNS(metaclass=ABCMeta):
 		config.read('data/config.ini')
 
 		self.logger: logging.Logger = logging.getLogger('passive-DDNS')
-		self.logger.setLevel(config.getint('log', 'level', fallback=logging.INFO))
+		self.file_log: logging.FileHandler = logging.FileHandler('data/log.log')
+		self.file_log.setLevel(logging.DEBUG)
+		self.file_log.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s'))
+		self.logger.setLevel(config.getint('log', 'level', fallback=logging.DEBUG))
+		self.logger.addHandler(self.file_log)
 
 		self.logger.debug('Loading configure file')
 
@@ -67,6 +73,7 @@ class AbstractDDNS(metaclass=ABCMeta):
 		os.kill(os.getpid(), signal.SIGINT)
 
 	def run(self) -> None:
+		_exception = False
 		while True:
 			try:
 				self.logger.debug('Getting current ip')
@@ -79,10 +86,18 @@ class AbstractDDNS(metaclass=ABCMeta):
 						now_ip = libother.SimpleIPQuery.get_ip()
 					except:
 						now_ip = libother.IPIPdotNet.get_ip()
-				self.do_ip_update(now_ip)
+				if self.do_ip_update(now_ip):
+					self.logger.debug('IP changed')
+				else:
+					self.logger.debug('IP unchanaged')
+				if _exception:
+					self.logger.info('Program woking normaly')
 			except AssertionError as e:
 				self.logger.exception('Catched AssertionError, Program will now exit.')
 				raise e
+			except requests.Timeout:
+				self.logger.exception('Got timeout error')
+				time.sleep(5)
 			except:
 				self.logger.exception('Got unexcepted error')
 				time.sleep(10) # Failsafe
@@ -103,7 +118,7 @@ class AbstractDDNS(metaclass=ABCMeta):
 		return NotImplemented
 
 	@abstractmethod
-	def do_ip_update(self, _now_ip: str) -> None:
+	def do_ip_update(self, _now_ip: str) -> bool:
 		return NotImplemented
 
 if __name__ == "__main__":

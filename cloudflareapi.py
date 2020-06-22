@@ -42,8 +42,9 @@ class DNSRecord:
 
 	def update_dns(self, session: requests.Session, change_to_ip: str) -> None:
 		self.content = change_to_ip
-		r = session.put(f'https://api.cloudflare.com/client/v4/zones/{self.zone_id}/dns_records/{self.id}', json=self.get_params())
+		r = session.put(f'https://api.cloudflare.com/client/v4/zones/{self.zone_id}/dns_records/{self.id}', json=self.get_params(), timeout=30)
 		r.raise_for_status()
+		r.close()
 	
 	def get_params(self) -> Dict[str, FixedType]:
 		return dict(type='A', name=self.name, content=self.content, proxied=self.proxied, ttl=self.ttl)
@@ -55,13 +56,17 @@ class CloudFlareApi:
 		self.session = requests.Session()
 		self.session.headers.update({
 			'Authorization': f'Bearer {self.api_token}',
-			'Content-Type': 'application/json'
+			'Content-Type': 'application/json',
+			'Connection': 'close'
 			})
 
+
 	def get_domain_record(self, domain: str, name: str) -> Dict[str, FixedType]:
-		r = self.session.get(f'https://api.cloudflare.com/client/v4/zones/{domain}/dns_records', params={'type': 'A', 'name': name})
+		r = self.session.get(f'https://api.cloudflare.com/client/v4/zones/{domain}/dns_records', params={'type': 'A', 'name': name}, timeout=30)
 		r.raise_for_status()
-		return r.json()['result'][0]
+		result = r.json()['result'][0]
+		r.close()
+		return result
 
 	def get_records(self) -> Generator[DNSRecord, None, None]:
 		for key, item in self.domains.items():

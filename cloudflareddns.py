@@ -30,9 +30,11 @@ class CloudFlareDDNS(AbstractDDNS):
 		config.read('data/config.ini')
 		self.cloudflare_api = CloudFlareApi(config)
 	
-	def do_ip_update(self, now_ip: str) -> None:
+	def do_ip_update(self, now_ip: str) -> bool:
 		if self.cloudflare_api.update_records(now_ip):
 			self.logger.info('IP change detected, Changed dns ip to %s', now_ip)
+			return True
+		return False
 	
 	def handle_reload(self) -> None:
 		pass

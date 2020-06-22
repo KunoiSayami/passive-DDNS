@@ -38,7 +38,7 @@ class HostkerDDNS(AbstractDDNS):
 	def handle_reload(self) -> None:
 		self.api_helper.reset_cache_time()
 
-	def do_ip_update(self, now_ip: str) -> None:
+	def do_ip_update(self, now_ip: str) -> bool:
 		self.logger.debug('Getting dns record ip')
 		data_group = self.api_helper.get_record_ip()
 		self.logger.debug('Checking records')
@@ -52,6 +52,8 @@ class HostkerDDNS(AbstractDDNS):
 				self.api_helper.api_request('editRecord', data) # type: ignore
 			self.logger.info('IP change detected, Changed dns ip to %s', now_ip)
 			self.domain_checker = []
+			return True
+		return False
 
 	def close(self) -> None:
 		pass
