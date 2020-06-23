@@ -45,20 +45,20 @@ class HostkerApiHelper:
 		self._last_get_ip_request = 0
 		self._ip_cache = {}
 
-	def api_request(self, operaction: str, data: Dict[str, str]) -> Dict[str, T]:
+	def api_request(self, operation: str, data: Dict[str, str]) -> Dict[str, T]:
 		assert data is None or isinstance(data, dict), 'data param must dict'
-		assert isinstance(operaction, str)
-		assert operaction in self.apiTarget, 'operation `{}\' not support'.format(operaction)
+		assert isinstance(operation, str)
+		assert operation in self.apiTarget, 'operation `{}\' not support'.format(operation)
 		t = self.token.copy()
 		if data is not None:
 			t.update(data)
-		r = requests.post(self.apiTarget[operaction], t)
+		r = requests.post(self.apiTarget[operation], t)
 		r.raise_for_status()
 		rjson = r.json()
 		#r.close()
 		if rjson['success'] != 1:
 			self.logger.error('Error in api_request()! (errorMessage:`%s\')', rjson['errorMessage'])
-			self.logger.debug('operaction=`%s\', request_uri = `%s\', data=`%s\', t=`%s\'', operaction, self.apiTarget[operaction], repr(data), repr(t))
+			self.logger.debug('operation=`%s\', request_uri = `%s\', data=`%s\', t=`%s\'', operation, self.apiTarget[operation], repr(data), repr(t))
 		return rjson
 
 	def get_record_ip_ex(self, domain: str, headers: List[str]) -> List[Dict[str, str]]:

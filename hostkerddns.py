@@ -25,8 +25,8 @@ from absddns import AbstractDDNS
 
 
 class HostkerDDNS(AbstractDDNS):
-	def __init__(self):
-		super().__init__()
+	def __init__(self, from_user: bool=False):
+		super().__init__(from_user)
 		config = ConfigParser()
 		config.read('data/config.ini')
 

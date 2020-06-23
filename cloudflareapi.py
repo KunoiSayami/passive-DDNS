@@ -20,11 +20,15 @@
 import ast
 from configparser import ConfigParser
 from dataclasses import dataclass
+import logging
 from typing import Dict, Generator, List, TypeVar
 
 import requests
 
 FixedType = TypeVar('FixedType', bool, str, int)
+
+logger: logging.Logger = logging.getLogger('CloudFlareApi')
+logger.setLevel(logging.INFO)
 
 @dataclass
 class DNSRecord:
@@ -40,12 +44,20 @@ class DNSRecord:
 		self = cls(rt['id'], rt['zone_id'], rt['name'], rt['content'], rt['proxied'], rt['ttl'])
 		return self
 
-	def update_dns(self, session: requests.Session, change_to_ip: str) -> None:
+	def update_dns(self, session: requests.Session, change_to_ip: str, retries: int=3) -> None:
 		self.content = change_to_ip
-		r = session.put(f'https://api.cloudflare.com/client/v4/zones/{self.zone_id}/dns_records/{self.id}', json=self.get_params(), timeout=30)
-		r.raise_for_status()
-		r.close()
-	
+		try:
+			r = session.put(f'https://api.cloudflare.com/client/v4/zones/{self.zone_id}/dns_records/{self.id}', json=self.get_params(), timeout=30)
+			r.raise_for_status()
+			r.close()
+		except requests.exceptions.Timeout:
+			if retries > 0:
+				logger.error('Got Timeout error during update dns record (retries: %d)', retries)
+				self.update_dns(session, change_to_ip, retries - 1)
+			else:
+				logger.critical('Can\'t update dns, raise it')
+				raise
+
 	def get_params(self) -> Dict[str, FixedType]:
 		return dict(type='A', name=self.name, content=self.content, proxied=self.proxied, ttl=self.ttl)
 
@@ -60,13 +72,20 @@ class CloudFlareApi:
 			'Connection': 'close'
 			})
 
-
-	def get_domain_record(self, domain: str, name: str) -> Dict[str, FixedType]:
-		r = self.session.get(f'https://api.cloudflare.com/client/v4/zones/{domain}/dns_records', params={'type': 'A', 'name': name}, timeout=30)
-		r.raise_for_status()
-		result = r.json()['result'][0]
-		r.close()
-		return result
+	def get_domain_record(self, domain: str, name: str, retries: int=3) -> Dict[str, FixedType]:
+		try:
+			r = self.session.get(f'https://api.cloudflare.com/client/v4/zones/{domain}/dns_records', params={'type': 'A', 'name': name}, timeout=30)
+			r.raise_for_status()
+			result = r.json()['result'][0]
+			r.close()
+			return result
+		except requests.exceptions.Timeout:
+			if retries > 0:
+				logger.error('Got timeout error (retries: %d)', retries)
+				return self.get_domain_record(domain, name, retries - 1)
+			else:
+				logger.critical('Can\'t fetch dns records, raise it')
+				raise
 
 	def get_records(self) -> Generator[DNSRecord, None, None]:
 		for key, item in self.domains.items():

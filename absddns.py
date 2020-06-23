@@ -18,6 +18,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 import logging
+from subprocess import TimeoutExpired
 import sys
 import os
 import signal
@@ -33,7 +34,7 @@ import libtplink
 
 
 class AbstractDDNS(metaclass=ABCMeta):
-	def __init__(self):
+	def __init__(self, from_user: bool=False):
 		config = ConfigParser()
 		config.read('data/config.ini')
 
@@ -41,7 +42,7 @@ class AbstractDDNS(metaclass=ABCMeta):
 		self.file_log: logging.FileHandler = logging.FileHandler('data/log.log')
 		self.file_log.setLevel(logging.DEBUG)
 		self.file_log.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s'))
-		self.logger.setLevel(config.getint('log', 'level', fallback=logging.DEBUG))
+		self.logger.setLevel(config.getint('log', 'level', fallback=logging.DEBUG if from_user else logging.INFO))
 		self.logger.addHandler(self.file_log)
 
 		self.logger.debug('Loading configure file')
@@ -89,17 +90,17 @@ class AbstractDDNS(metaclass=ABCMeta):
 				if self.do_ip_update(now_ip):
 					self.logger.debug('IP changed')
 				else:
-					self.logger.debug('IP unchanaged')
+					self.logger.debug('IP unchanged')
 				if _exception:
-					self.logger.info('Program woking normaly')
+					self.logger.info('Program woking normally')
 			except AssertionError as e:
-				self.logger.exception('Catched AssertionError, Program will now exit.')
+				self.logger.exception('Catch AssertionError, Program will now exit.')
 				raise e
 			except requests.Timeout:
-				self.logger.exception('Got timeout error')
+				self.logger.exception('')
 				time.sleep(5)
 			except:
-				self.logger.exception('Got unexcepted error')
+				self.logger.exception('Got unexpected error')
 				time.sleep(10) # Failsafe
 			else:
 				try:
@@ -126,4 +127,9 @@ if __name__ == "__main__":
 		if sys.argv[1] == 'stop':
 			import subprocess
 			os.kill(int(sys.argv[2]), 2)
-			subprocess.Popen(['/usr/bin/tail', f'--pid={int(sys.argv[2])}', '-f', '/dev/null']).wait()
+			p = subprocess.Popen(['/usr/bin/tail', f'--pid={int(sys.argv[2])}', '-f', '/dev/null'])
+			try:
+				p.wait(2)
+			except TimeoutExpired:
+				os.kill(int(sys.argv[2]), 2)
+			p.wait()
