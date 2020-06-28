@@ -18,13 +18,14 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 import logging
-from subprocess import TimeoutExpired
-import sys
 import os
 import signal
+import sys
 import time
+import traceback
 from abc import ABCMeta, abstractmethod
 from configparser import ConfigParser
+from subprocess import TimeoutExpired
 
 import requests
 
@@ -97,10 +98,13 @@ class AbstractDDNS(metaclass=ABCMeta):
 				self.logger.exception('Catch AssertionError, Program will now exit.')
 				raise e
 			except requests.Timeout:
-				self.logger.exception('')
-				time.sleep(5)
+				self.logger.error('Wait more time to reconnect')
+				time.sleep(120)
+			except requests.ConnectionError as e:
+				self.logger.error('Got %s, ignored.', traceback.format_exception_only(type(e), e)[0])
+				time.sleep(10)
 			except:
-				self.logger.exception('Got unexpected error')
+				self.logger.critical('Got unexpected error', exc_info=True)
 				time.sleep(10) # Failsafe
 			else:
 				try:

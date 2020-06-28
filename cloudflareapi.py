@@ -18,9 +18,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 import ast
+import logging
+import time
 from configparser import ConfigParser
 from dataclasses import dataclass
-import logging
 from typing import Dict, Generator, List, TypeVar
 
 import requests
@@ -29,6 +30,7 @@ FixedType = TypeVar('FixedType', bool, str, int)
 
 logger: logging.Logger = logging.getLogger('CloudFlareApi')
 logger.setLevel(logging.INFO)
+retry_delay = [60, 20, 10, 0]
 
 @dataclass
 class DNSRecord:
@@ -46,6 +48,7 @@ class DNSRecord:
 
 	def update_dns(self, session: requests.Session, change_to_ip: str, retries: int=3) -> None:
 		self.content = change_to_ip
+		time.sleep(retry_delay[retries])
 		try:
 			r = session.put(f'https://api.cloudflare.com/client/v4/zones/{self.zone_id}/dns_records/{self.id}', json=self.get_params(), timeout=30)
 			r.raise_for_status()
@@ -61,6 +64,7 @@ class DNSRecord:
 	def get_params(self) -> Dict[str, FixedType]:
 		return dict(type='A', name=self.name, content=self.content, proxied=self.proxied, ttl=self.ttl)
 
+
 class CloudFlareApi:
 	def __init__(self, config: ConfigParser):
 		self.api_token: str = config.get('cloudflare', 'token')
@@ -73,6 +77,7 @@ class CloudFlareApi:
 			})
 
 	def get_domain_record(self, domain: str, name: str, retries: int=3) -> Dict[str, FixedType]:
+		time.sleep(retry_delay[retries])
 		try:
 			r = self.session.get(f'https://api.cloudflare.com/client/v4/zones/{domain}/dns_records', params={'type': 'A', 'name': name}, timeout=30)
 			r.raise_for_status()
