@@ -101,7 +101,7 @@ class AbstractDDNS(metaclass=ABCMeta):
 				self.logger.error('Wait more time to reconnect')
 				time.sleep(120)
 			except requests.ConnectionError as e:
-				self.logger.error('Got %s, ignored.', traceback.format_exception_only(type(e), e)[0])
+				self.logger.error('Got %s, ignored.', traceback.format_exception_only(type(e), e)[0].strip())
 				time.sleep(10)
 			except:
 				self.logger.critical('Got unexpected error', exc_info=True)
