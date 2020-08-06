@@ -67,8 +67,12 @@ class DNSRecord:
 
 class CloudFlareApi:
 	def __init__(self, config: ConfigParser):
+		self.domains: Dict[str, List[str]]
 		self.api_token: str = config.get('cloudflare', 'token')
-		self.domains: Dict[str, List[str]] = ast.literal_eval(config.get('cloudflare', 'header_domain'))
+		if config.has_option('cloudflare', 'header_domain'):
+			self.domains = ast.literal_eval(config.get('cloudflare', 'header_domain'))
+		else:
+			self.domains = ast.literal_eval(config.get('cloudflare', 'ipv4_domain'))
 		self.session = requests.Session()
 		self.session.headers.update({
 			'Authorization': f'Bearer {self.api_token}',

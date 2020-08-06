@@ -73,21 +73,27 @@ class OpenWRTHelper:
 		self._write_session_str()
 		return self.check_login()
 
-	def get_ip(self, relogin: bool=False) -> str:
+	def get_ipv4(self, relogin: bool=False) -> str:
+		return self.get_ip(relogin)
+
+	def get_ipv6(self, relogin: bool=False) -> str:
+		return self.get_ip(relogin, v6=True)
+
+	def get_ip(self, relogin: bool=False, *, v6: bool=False) -> str:
 		if self.v2_work is None:
 			try:
-				ip = self.get_ip_v1(relogin)
+				ip = self.get_ip_v1(relogin, v6=v6)
 				self.v2_work = False
 			except OpenWRTHelper.UnknownError:
-				ip = self.get_ip_v2(relogin)
+				ip = self.get_ip_v2(relogin, v6=v6)
 				self.v2_work = True
 		elif self.v2_work:
-			ip = self.get_ip_v2(relogin)
+			ip = self.get_ip_v2(relogin, v6=v6)
 		else:
-			ip = self.get_ip_v1(relogin)
+			ip = self.get_ip_v1(relogin, v6=v6)
 		return ip
 
-	def get_ip_v1(self, relogin: bool=False) -> str:
+	def get_ip_v1(self, relogin: bool=False, *, v6: bool=False) -> str:
 		self.do_login(relogin)
 		r = self.Session.post(f'{self.route_web}/ubus/?{int(time.time())}',
 				json=[{'jsonrpc': '2.0', 'id': 1, 'method': 'call', 'params': [self.session_str, 'network.interface', 'dump', {}]}])
@@ -95,8 +101,8 @@ class OpenWRTHelper:
 		self.logger.debug('json object => %s', repr(raw_data))
 		if raw_data.get('error') is None:
 			for interface in raw_data.get('result')[1].get('interface'):
-				if interface.get('interface') == 'wan':
-					return interface.get('ipv4-address')[0].get('address')
+				if interface.get('interface') == ('wan6' if v6 else 'wan'):
+					return interface.get('ipv6-address' if v6 else 'ipv4-address')[0].get('address', 'ERROR')
 		else:
 			if raw_data['error']['message'] == 'Access denied':
 				if relogin:
@@ -106,10 +112,10 @@ class OpenWRTHelper:
 			else:
 				raise OpenWRTHelper.OtherError()
 	
-	def get_ip_v2(self, relogin: bool=False) -> str:
+	def get_ip_v2(self, relogin: bool=False, *, v6: bool=False) -> str:
 		self.do_login(relogin)
 		r = self.Session.get(f'{self.route_web}/cgi-bin/luci/?status=1&_={time.time()}')
-		return r.json()['wan']['ipaddr']
+		return r.json()['wan6' if v6 else 'wan']['ipaddr']
 
 if __name__ == "__main__":
 	print(OpenWRTHelper('127.0.0.1', 'root', '').get_ip())

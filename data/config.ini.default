@@ -9,8 +9,9 @@ token =
 ; you should set like this
 ; example.com zone id is `ca3d180a0c66ac16da45fad9f7674292'
 ; example.moe zone id is `2d9437302c842804ab97f94e657c98af'
-; header_domain = {'ca3d180a0c66ac16da45fad9f7674292': ['a.example.com', 'b.example.com'], '2d9437302c842804ab97f94e657c98af': ['c.example.moe']}
-header_domain = {}
+; ipv4_domain = {'ca3d180a0c66ac16da45fad9f7674292': ['a.example.com', 'b.example.com'], '2d9437302c842804ab97f94e657c98af': ['c.example.moe']}
+ipv4_domain = {}
+ipv6_domain = {}
 
 [hostker]
 enabled = false

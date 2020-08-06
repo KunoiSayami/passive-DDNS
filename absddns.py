@@ -53,7 +53,7 @@ class AbstractDDNS(metaclass=ABCMeta):
 
 		self.tplink_enabled: bool = config.getboolean('tplink', 'enabled', fallback=False)
 		if self.tplink_enabled:
-			self.tplink_helper: libtplink.TpLinkHelper = libtplink.TpLinkHelper(config['tplink']['url'], config['tplink']['password'])
+			self.tplink_helper: libtplink.TpLinkHelper = libtplink.TpLinkHelper(config.get('tplink', 'url'), config.get('tplink', 'password'))
 		self.openwrt_enabled: bool = config.getboolean('openwrt', 'enabled', fallback=False)
 		if self.openwrt_enabled:
 			self.openwrt_helper: libopenwrt.OpenWRTHelper = libopenwrt.OpenWRTHelper(
@@ -123,7 +123,7 @@ class AbstractDDNS(metaclass=ABCMeta):
 		return NotImplemented
 
 	@abstractmethod
-	def do_ip_update(self, _now_ip: str) -> bool:
+	def do_ip_update(self, now_ip: str) -> bool:
 		return NotImplemented
 
 if __name__ == "__main__":
