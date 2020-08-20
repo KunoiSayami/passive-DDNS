@@ -31,10 +31,9 @@ if __name__ == "__main__":
 	else:
 		try:
 			import coloredlogs
+			coloredlogs.install(logging.DEBUG, fmt='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
 		except ModuleNotFoundError:
 			logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
-		else:
-			coloredlogs.install(logging.DEBUG, fmt='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
 		logging.getLogger('passive-DDNS').info('Start program from normal mode, show debug message by default.')
 	config = ConfigParser()
 	config.read('data/config.ini')

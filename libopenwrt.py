@@ -19,14 +19,58 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 import logging
 import time
+import struct
 from typing import Optional
 
 import requests
 
 
+class SessionFile:
+	VERSION = 2
+
+	class VersionError(Exception): pass
+
+	def __init__(self, f: bytes) -> None:
+		self.ver: int = 0
+		self.version_defined: bool = True
+		self.require_v2: bool = False
+		self.session: str = ''
+		try:
+			ver, version_defined, require_v2, session = struct.unpack('I??64s', f)
+			if ver < self.VERSION:
+				raise SessionFile.VersionError()
+			self.ver = ver
+			self.version_defined = version_defined
+			self.require_v2 = require_v2
+			self.session = session.decode().strip().replace('\x00', '')
+		except (SessionFile.VersionError, struct.error):
+			pass
+
+	@property
+	def v2(self) -> Optional[bool]:
+		if self.version_defined:
+			return
+		return self.require_v2
+
+	@v2.setter
+	def v2(self, value: Optional[bool]) -> Optional[bool]:
+		if value is None:
+			self.version_defined = True
+		else:
+			self.version_defined = False
+			self.require_v2 = value
+		return value
+
+	def __repr__(self) -> str:
+		return repr((self.ver, self.version_defined, self.require_v2, self.session,))
+
+	def pack(self) -> bytes:
+		return struct.pack('<I??64s', self.version_defined, self.VERSION, self.require_v2, self.session.encode())
+
+
 class OpenWRTHelper:
 	class OtherError(Exception): pass
-	
+
 	class MaxRetryError(Exception): pass
 
 	class UnknownError(Exception): pass
@@ -35,42 +79,44 @@ class OpenWRTHelper:
 		self.route_web: str = f'http://{route_ip}'
 		self.user: str = user
 		self.password: str = password
-		self.Session: requests.Session = requests.Session()
+		self.requests_session: requests.Session = requests.Session()
 		self.logger: logging.Logger = logging.getLogger('OpenWRTHelper')
 		self.logger.setLevel(logging.DEBUG)
-		self.session_str: str = self._read_session_str()
+		self.user_session: SessionFile = self._read_session()
 
-		self.v2_work: Optional[bool] = None
-
-	def _write_session_str(self) -> None:
+	def _write_session(self) -> None:
 		try:
-			with open('data/.session', 'w') as fout:
-				fout.write(self.session_str)
+			with open('data/.session', 'wb') as fout:
+				fout.write(self.user_session.pack())
+			self.logger.info(repr(self.user_session))
 		except PermissionError:
 			self.logger.warning('Got permission error while write session file, ignored.')
 
-	def _read_session_str(self) -> str:
+	def _read_session(self) -> SessionFile:
 		try:
-			with open('data/.session', 'r') as fin:
-				self.session_str = fin.read()
-				self.Session.cookies.update({'sysauth': self.session_str})
-			return self.session_str
+			with open('data/.session', 'rb') as fin:
+				sf = SessionFile(fin.read())
+				self.logger.debug(repr(sf))
+				self.requests_session.cookies.update({'sysauth': sf.session})
+			return sf
 		except FileNotFoundError:
-			return ''
+			return SessionFile(b'')
 
 	def check_login(self) -> bool:
-		return self.Session.get(self.route_web + '/cgi-bin/luci/').status_code == 200
+		self.logger.debug('Check login')
+		return self.requests_session.get(self.route_web + '/cgi-bin/luci/').status_code == 200
 
 	def do_login(self, force: bool=False) -> bool:
+		self.logger.debug('Request login')
 		if not force and self.check_login():
 			return True
-		self.Session.cookies.clear()
-		r = self.Session.post(f'{self.route_web}/cgi-bin/luci',
+		self.requests_session.cookies.clear()
+		r = self.requests_session.post(f'{self.route_web}/cgi-bin/luci',
 				data={'luci_username': self.user, 'luci_password': self.password},
 				allow_redirects=False)
 		r.raise_for_status()
-		self.session_str = self.Session.cookies.get('sysauth')
-		self._write_session_str()
+		self.user_session.session = self.requests_session.cookies.get('sysauth')
+		self._write_session()
 		return self.check_login()
 
 	def get_ipv4(self, relogin: bool=False) -> str:
@@ -80,14 +126,15 @@ class OpenWRTHelper:
 		return self.get_ip(relogin, v6=True)
 
 	def get_ip(self, relogin: bool=False, *, v6: bool=False) -> str:
-		if self.v2_work is None:
+		if self.user_session.v2 is None:
 			try:
 				ip = self.get_ip_v1(relogin, v6=v6)
-				self.v2_work = False
+				self.user_session.v2 = False
 			except OpenWRTHelper.UnknownError:
 				ip = self.get_ip_v2(relogin, v6=v6)
-				self.v2_work = True
-		elif self.v2_work:
+				self.user_session.v2 = True
+			self._write_session()
+		elif self.user_session.v2:
 			ip = self.get_ip_v2(relogin, v6=v6)
 		else:
 			ip = self.get_ip_v1(relogin, v6=v6)
@@ -95,8 +142,8 @@ class OpenWRTHelper:
 
 	def get_ip_v1(self, relogin: bool=False, *, v6: bool=False) -> str:
 		self.do_login(relogin)
-		r = self.Session.post(f'{self.route_web}/ubus/?{int(time.time())}',
-				json=[{'jsonrpc': '2.0', 'id': 1, 'method': 'call', 'params': [self.session_str, 'network.interface', 'dump', {}]}])
+		r = self.requests_session.post(f'{self.route_web}/ubus/?{int(time.time())}',
+				json=[{'jsonrpc': '2.0', 'id': 1, 'method': 'call', 'params': [self.user_session.session, 'network.interface', 'dump', {}]}])
 		raw_data = r.json()[0]
 		self.logger.debug('json object => %s', repr(raw_data))
 		if raw_data.get('error') is None:
@@ -111,10 +158,10 @@ class OpenWRTHelper:
 					return self.get_ip_v1(True)
 			else:
 				raise OpenWRTHelper.OtherError()
-	
+
 	def get_ip_v2(self, relogin: bool=False, *, v6: bool=False) -> str:
 		self.do_login(relogin)
-		r = self.Session.get(f'{self.route_web}/cgi-bin/luci/?status=1&_={time.time()}')
+		r = self.requests_session.get(f'{self.route_web}/cgi-bin/luci/?status=1&_={time.time()}')
 		return r.json()['wan6' if v6 else 'wan']['ipaddr']
 
 if __name__ == "__main__":
