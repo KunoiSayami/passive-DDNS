@@ -57,7 +57,7 @@ class IPIPdotNet(IPQuery):
         except bs4.FeatureNotFound:
             soup = bs4.BeautifulSoup(r.text, 'html.parser')
         ip = soup.find(class_='yourInfo').select('li a')[0].text
-        return ip
+        return ip.strip()
 
 
 class SimpleIPQuery(IPQuery):
@@ -67,7 +67,7 @@ class SimpleIPQuery(IPQuery):
     def get_ip(cls) -> str:
         r = requests.get(cls.url)
         r.raise_for_status()
-        return r.text
+        return r.text.strip()
 
     @classmethod
     def set_url(cls, url: str) -> str:

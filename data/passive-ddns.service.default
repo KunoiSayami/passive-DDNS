@@ -4,13 +4,13 @@ After=network.target
 
 [Service]
 Type=simple
-User=nobody
+DynamicUser=true
 Restart=on-failure
 RestartSec=5s
 WorkingDirectory=/opt/passive-DDNS
-ExecStart=/usr/bin/python3 /opt/passive-DDNS/pddns.py
-ExecReload=/bin/kill -10 $MAINPID
-ExecStop=/usr/bin/python3 /opt/passive-DDNS/absddns.py stop $MAINPID
+ExecStart=/usr/bin/env python3 /opt/passive-DDNS/pddns.py
+ExecReload=/usr/bin/env kill -10 $MAINPID
+ExecStop=/usr/bin/env python3 /opt/passive-DDNS/absddns.py stop $MAINPID
 TimeoutStopSec=5s
 
 [Install]
