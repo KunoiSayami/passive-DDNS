@@ -24,20 +24,20 @@ from cloudflareapi import CloudFlareApi
 
 
 class CloudFlareDDNS(AbstractDDNS):
-	def __init__(self, from_user: bool=False):
-		super().__init__(from_user)
-		config = ConfigParser()
-		config.read('data/config.ini')
-		self.cloudflare_api = CloudFlareApi(config)
-	
-	def do_ip_update(self, now_ip: str) -> bool:
-		if self.cloudflare_api.update_records(now_ip):
-			self.logger.info('IP change detected, Changed dns ip to %s', now_ip)
-			return True
-		return False
-	
-	def handle_reload(self) -> None:
-		pass
+    def __init__(self, from_user: bool = False):
+        super().__init__(from_user)
+        config = ConfigParser()
+        config.read('data/config.ini')
+        self.cloudflare_api = CloudFlareApi(config)
 
-	def close(self) -> None:
-		self.cloudflare_api.close()
+    def do_ip_update(self, now_ip: str) -> bool:
+        if self.cloudflare_api.update_records(now_ip):
+            self.logger.info('IP change detected, Changed dns ip to %s', now_ip)
+            return True
+        return False
+
+    def handle_reload(self) -> None:
+        pass
+
+    def close(self) -> None:
+        self.cloudflare_api.close()

@@ -19,52 +19,57 @@
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 import logging
 import time
-from abc import ABCMeta, abstractclassmethod
+from abc import ABCMeta, abstractmethod
 
 import bs4
 import requests
 
 logger = logging.getLogger(__name__)
 
+
 class IPQuery(metaclass=ABCMeta):
 
-	@abstractclassmethod
-	def get_ip(cls) -> str:
-		return NotImplemented
+    @classmethod
+    @abstractmethod
+    def get_ip(cls) -> str:
+        return NotImplemented
 
 
 class IPIPdotNet(IPQuery):
-	@classmethod
-	def get_ip(cls) -> str:
-		while True:
-			try:
-				return cls._get_current_IP()
-			except:
-				logger.exception('Exception while get current ip:')
-				time.sleep(5)
+    @classmethod
+    def get_ip(cls) -> str:
+        while True:
+            try:
+                return cls.get_current_IP()
+            except:
+                logger.exception('Exception while get current ip:')
+                time.sleep(5)
 
-	@staticmethod
-	def _get_current_IP() -> str:
-		r = requests.get('https://ipip.net/', headers={
-			'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36'
-		})
-		r.raise_for_status()
-		try:
-			soup = bs4.BeautifulSoup(r.text, 'lxml')
-		except bs4.FeatureNotFound:
-			soup = bs4.BeautifulSoup(r.text, 'html.parser')
-		ip = soup.find(class_='yourInfo').select('li a')[0].text
-		return ip
+    @staticmethod
+    def get_current_IP() -> str:
+        r = requests.get('https://ipip.net/', headers={
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) '
+                          'Chrome/35.0.1916.47 Safari/537.36 '
+        })
+        r.raise_for_status()
+        try:
+            soup = bs4.BeautifulSoup(r.text, 'lxml')
+        except bs4.FeatureNotFound:
+            soup = bs4.BeautifulSoup(r.text, 'html.parser')
+        ip = soup.find(class_='yourInfo').select('li a')[0].text
+        return ip
+
 
 class SimpleIPQuery(IPQuery):
-	url = 'https://api-ipv4.ip.sb/ip'
-	@classmethod
-	def get_ip(cls) -> str:
-		r = requests.get(cls.url)
-		r.raise_for_status()
-		return r.text
+    url = 'https://api-ipv4.ip.sb/ip'
 
-	@classmethod
-	def set_url(cls, url: str) -> str:
-		cls.url = url
-		return url
+    @classmethod
+    def get_ip(cls) -> str:
+        r = requests.get(cls.url)
+        r.raise_for_status()
+        return r.text
+
+    @classmethod
+    def set_url(cls, url: str) -> str:
+        cls.url = url
+        return url

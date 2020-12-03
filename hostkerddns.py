@@ -25,35 +25,35 @@ from absddns import AbstractDDNS
 
 
 class HostkerDDNS(AbstractDDNS):
-	def __init__(self, from_user: bool=False):
-		super().__init__(from_user)
-		config = ConfigParser()
-		config.read('data/config.ini')
+    def __init__(self, from_user: bool=False):
+        super().__init__(from_user)
+        config = ConfigParser()
+        config.read('data/config.ini')
 
-		self.api_helper: hostkerapi.HostkerApiHelper =  hostkerapi.HostkerApiHelper(config)
+        self.api_helper: hostkerapi.HostkerApiHelper =  hostkerapi.HostkerApiHelper(config)
 
-		self.logger.info('Initializtion successful')
-		self.domain_checker: List[str] = []
+        self.logger.info('Initializtion successful')
+        self.domain_checker: List[str] = []
 
-	def handle_reload(self) -> None:
-		self.api_helper.reset_cache_time()
+    def handle_reload(self) -> None:
+        self.api_helper.reset_cache_time()
 
-	def do_ip_update(self, now_ip: str) -> bool:
-		self.logger.debug('Getting dns record ip')
-		data_group = self.api_helper.get_record_ip()
-		self.logger.debug('Checking records')
-		for _domain, headers_data in data_group.items():
-			for header_data in headers_data:
-				if now_ip != header_data['data']: # type: ignore
-					self.domain_checker.append({'id': header_data['id'], 'data': now_ip, 'ttl': header_data['ttl']}) # type: ignore
-		if self.domain_checker:
-			self.logger.debug('Find %d record need update, update it.', len(self.domain_checker))
-			for data in self.domain_checker:
-				self.api_helper.api_request('editRecord', data) # type: ignore
-			self.logger.info('IP change detected, Changed dns ip to %s', now_ip)
-			self.domain_checker = []
-			return True
-		return False
+    def do_ip_update(self, now_ip: str) -> bool:
+        self.logger.debug('Getting dns record ip')
+        data_group = self.api_helper.get_record_ip()
+        self.logger.debug('Checking records')
+        for _domain, headers_data in data_group.items():
+            for header_data in headers_data:
+                if now_ip != header_data['data']: # type: ignore
+                    self.domain_checker.append({'id': header_data['id'], 'data': now_ip, 'ttl': header_data['ttl']}) # type: ignore
+        if self.domain_checker:
+            self.logger.debug('Find %d record need update, update it.', len(self.domain_checker))
+            for data in self.domain_checker:
+                self.api_helper.api_request('editRecord', data) # type: ignore
+            self.logger.info('IP change detected, Changed dns ip to %s', now_ip)
+            self.domain_checker = []
+            return True
+        return False
 
-	def close(self) -> None:
-		pass
+    def close(self) -> None:
+        pass

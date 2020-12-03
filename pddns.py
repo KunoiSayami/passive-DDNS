@@ -25,19 +25,21 @@ from cloudflareddns import CloudFlareDDNS
 from hostkerddns import HostkerDDNS
 
 if __name__ == "__main__":
-	from_user = os.getppid() != 1
-	if not from_user:
-		logging.basicConfig(level=logging.INFO, format='[%(levelname)s]\t%(funcName)s - %(lineno)d - %(message)s')
-	else:
-		try:
-			import coloredlogs
-			coloredlogs.install(logging.DEBUG, fmt='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
-		except ModuleNotFoundError:
-			logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(lineno)d - %(message)s')
-		logging.getLogger('passive-DDNS').info('Start program from normal mode, show debug message by default.')
-	config = ConfigParser()
-	config.read('data/config.ini')
-	if config.getboolean('cloudflare', 'enabled', fallback=False):
-		CloudFlareDDNS(from_user).run()
-	else:
-		HostkerDDNS(from_user).run()
+    from_user = os.getppid() != 1
+    if not from_user:
+        logging.basicConfig(level=logging.INFO, format='[%(levelname)s]\t%(funcName)s - %(lineno)d - %(message)s')
+    else:
+        try:
+            import coloredlogs
+            coloredlogs.install(logging.DEBUG, fmt='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %('
+                                                   'lineno)d - %(message)s')
+        except ModuleNotFoundError:
+            logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - '
+                                                            '%(lineno)d - %(message)s')
+        logging.getLogger('passive-DDNS').info('Start program from normal mode, show debug message by default.')
+    config = ConfigParser()
+    config.read('data/config.ini')
+    if config.getboolean('cloudflare', 'enabled', fallback=False):
+        CloudFlareDDNS(from_user).run()
+    else:
+        HostkerDDNS(from_user).run()
