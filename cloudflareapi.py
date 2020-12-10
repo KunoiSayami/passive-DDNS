@@ -28,8 +28,8 @@ import requests
 
 FixedType = TypeVar('FixedType', bool, str, int)
 
-logger: logging.Logger = logging.getLogger('CloudFlareApi')
-logger.setLevel(logging.INFO)
+logger: logging.Logger = logging.getLogger('passive-DDNS').getChild('CloudFlareApi')
+logger.setLevel(logging.getLogger('passive-DDNS').level)
 retry_delay = [60, 20, 10, 0]
 
 

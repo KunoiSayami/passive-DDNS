@@ -84,15 +84,15 @@ class OpenWRTHelper:
         self.user: str = user
         self.password: str = password
         self.requests_session: requests.Session = requests.Session()
-        self.logger: logging.Logger = logging.getLogger('OpenWRTHelper')
-        self.logger.setLevel(logging.DEBUG)
+        self.logger: logging.Logger = logging.getLogger('passive-DDNS').getChild('OpenWRTHelper')
+        self.logger.setLevel(logging.getLogger('passive-DDNS').level)
         self.user_session: SessionFile = self._read_session()
 
     def _write_session(self) -> None:
         try:
             with open('data/.session', 'wb') as fout:
                 fout.write(self.user_session.pack())
-            self.logger.info(repr(self.user_session))
+            self.logger.debug(repr(self.user_session))
         except PermissionError:
             self.logger.warning('Got permission error while write session file, ignored.')
 

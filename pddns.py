@@ -22,8 +22,6 @@ import logging
 import os
 from configparser import ConfigParser
 
-from cloudflareddns import CloudFlareDDNS
-from hostkerddns import HostkerDDNS
 
 if __name__ == "__main__":
     from_user = os.getppid() != 1
@@ -41,6 +39,8 @@ if __name__ == "__main__":
     config = ConfigParser()
     config.read('data/config.ini')
     if config.getboolean('cloudflare', 'enabled', fallback=False):
+        from cloudflareddns import CloudFlareDDNS
         CloudFlareDDNS(from_user).run()
     else:
+        from hostkerddns import HostkerDDNS
         HostkerDDNS(from_user).run()

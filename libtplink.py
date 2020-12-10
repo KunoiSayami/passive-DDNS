@@ -6,7 +6,9 @@ import requests
 
 # copied from http://www.voidcn.com/article/p-ckdtymdi-pz.html
 short = "RDpbLfCPsJZ7fiv"
-Lng = 'yLwVl0zKqws7LgKPRQ84Mdt708T1qQ3Ha7xv3H7NyU84p21BriUWBU43odz3iP4rBL3cD02KZciXTysVXiV8ngg6vL48rPJyAUw0HurW20xqxv9aYb4M9wK1Ae0wlro510qXeU07kV57fQMc8L6aLgMLwygtc0F10a0Dg70TOoouyFhdysuRMO51yY5ZlOZZLEal1h0t9YQW0Ko7oBwmCAHoic4HYbUyVeU3sfQ1xtXcPcf1aT303wAQhv66qzW'
+Lng = 'yLwVl0zKqws7LgKPRQ84Mdt708T1qQ3Ha7xv3H7NyU84p21BriUWBU43odz3iP4rBL3cD02KZciXTysVXiV8ngg6vL48rPJyAUw0HurW20' \
+      'xqxv9aYb4M9wK1Ae0wlro510qXeU07kV57fQMc8L6aLgMLwygtc0F10a0Dg70TOoouyFhdysuRMO51yY5ZlOZZLEal1h0t9YQW0Ko7oBwm' \
+      'CAHoic4HYbUyVeU3sfQ1xtXcPcf1aT303wAQhv66qzW'
 
 
 def encode_password(origin_password: str):
@@ -35,7 +37,8 @@ def encode_password(origin_password: str):
     return ''.join(e)
 
 
-class LoginError(Exception): pass
+class LoginError(Exception):
+    """Login error exception"""
 
 
 class TpLinkHelper:
