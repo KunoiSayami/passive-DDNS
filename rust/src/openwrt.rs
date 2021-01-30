@@ -17,10 +17,32 @@
  ** You should have received a copy of the GNU Affero General Public License
  ** along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-mod openwrt {
+pub(crate) mod openwrt {
     use std::collections::HashMap;
     use std::path::Path;
-    use std::hash::Hash;
+    use std::fs::File;
+    use std::io::Write;
+
+    struct Cookie {
+        key: String,
+        value: String
+    }
+
+    impl Cookie {
+        fn new<T> (key: T, value: T) -> Cookie
+            where T: Into<String> {
+            Cookie{key: key.into(), value: value.into()}
+        }
+
+        fn paste(&self) -> String {
+            format!("{}={}", &self.key, &self.value)
+        }
+
+        fn load_from_entry(entry: &str) -> Cookie {
+            let slice = entry.split_once("=").unwrap();
+            Cookie::new(slice.0, slice.1)
+        }
+    }
 
     struct Configure {
         user: String,
@@ -28,23 +50,29 @@ mod openwrt {
         basic_address: String
     }
 
-    impl ConfigureBuilder {
-        fn build(user: String, password: String, basic_address: String) -> Configure {
-            Configure{user, password, basic_address}
+    impl Configure {
+        fn new<T>(user: T, password: T, basic_address: T) -> Configure
+            where T: Into<String> {
+            Configure{
+                user: user.into(),
+                password: password.into(),
+                basic_address: basic_address.into()
+            }
         }
     }
 
     pub struct Client {
         configure: Configure,
-        client: reqwest::Client,
-        jar: HashMap<String, String>,
+        client: reqwest::blocking::Client,
+        jar: Vec<Cookie>,
     }
 
     impl Client {
-        fn check_login(basic_address: String) -> bool {
+        fn check_login(&self) -> bool {
             log::debug!("Check login");
             let resp =
-                match reqwest::blocking::get(format!("{}/cgi-bin/luci", basic_address)) {
+                match reqwest::blocking::get(format!("{}/cgi-bin/luci",
+                                                     &self.configure.basic_address).as_str()) {
                     Ok(req) => req,
                     Err(e) => {
                         panic!("Error with status code: {}", e);
@@ -54,42 +82,77 @@ mod openwrt {
             resp.as_u16() == 200
         }
 
+        fn parse_cookies(cookies: &Vec<Cookie>) -> String {
+            let mut cookie_string: Vec<String> = vec![];
+            for cookie in cookies.iter() {
+                cookie_string.push(cookie.paste())
+            }
+            cookie_string.join("; ")
+        }
+
         pub fn do_login(&self) -> bool {
+            if self.check_login() {
+                return true
+            }
             let mut post_data: HashMap<&str, &String> = HashMap::new();
             post_data.insert("luci_username", &self.configure.user);
             post_data.insert("luci_password", &self.configure.password);
-            let req = self.client.post(format!("{}/cgi-bin/luci", self.configure.basic_address))
-                .json(&post_data).header("cookies", );
-
+            let req = self.client.post(format!("{}/cgi-bin/luci", self.configure.basic_address)
+                .as_str())
+                .json(&post_data)
+                .header("cookies", Client::parse_cookies(&self.jar))
+                .send()
+                .unwrap();
+            let status_code = req.status().as_u16();
+            return if status_code == 200 {
+                true
+            } else {
+                eprintln!("Error code: {}", status_code);
+                false
+            }
         }
 
         pub fn get_current_ip(&self) -> String {
             return String::new();
         }
 
-        pub fn new(user: String, password: String, basic_address: String) -> OpenwrtClient {
-            let client: reqwest::Client = reqwest::ClientBuilder::new()
-                .cookie_store(true)
-                .build()
-                .unwarp();
+        fn save_cookies(&self) -> std::io::Result<()> {
+            let mut session_file = File::open("data/.session")?;
+            let content = Client::parse_cookies(&self.jar);
+            Ok(session_file.write_all(content.as_bytes())?)
+        }
+
+        fn load_cookies(&mut self) {
             let session_path = Path::new(".data/.session");
-            let session_string = if Path::exists(session_path) {
+            let content = if Path::exists(session_path) {
                 let contents = std::fs::read_to_string(session_path);
                 match contents {
                     Ok(content) => content,
-                    Err(e) => String::new()
+                    Err(_e) => String::new()
                 }
             } else {
                 String::new()
             };
-            let configure = Configure{user, password, basic_address};
-            OpenwrtClient{configure, client, jar: HashMap::new()}
+            if content.len() > 0 {
+                if content.contains(";") {
+                    for entry in content.split(";") {
+                        self.jar.push(Cookie::load_from_entry(entry));
+                    }
+                }
+                else {
+                    self.jar.push(Cookie::load_from_entry(content.as_str()))
+                }
+            }
+        }
+
+        pub fn new<T>(user: T, password: T, basic_address: T) -> Client
+            where T: Into<String> {
+            let client = reqwest::blocking::ClientBuilder::new()
+                .cookie_store(true)
+                .build()
+                .unwrap();
+            let configure = Configure::new(user, password, basic_address);
+            Client{configure, client, jar: vec![]}
         }
     }
-
-}
-
-#[cfg(test)]
-fn main() {
-    //println!("{}", openwrt::get_current_ip("127.0.0.1", "root", ""));
 }

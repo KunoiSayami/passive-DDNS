@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 log = { version = "0.4", features = ["max_level_trace", "release_max_level_off"] }
 env_logger = "0.8.2"
-reqwest = { version = "0.11", features = ["blocking", "json"] }
-async-std = "1.9.0"
+reqwest = { version = "0.11", features = ["blocking", "json", "cookies"] }
+#async-std = "1.9.0"
 configparser = "2.0.0"
+hyper = "0.14.2"
