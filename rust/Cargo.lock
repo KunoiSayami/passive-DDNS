@@ -571,7 +571,6 @@ version = "0.1.0"
 dependencies = [
  "configparser",
  "env_logger",
- "hyper",
  "log",
  "reqwest",
 ]

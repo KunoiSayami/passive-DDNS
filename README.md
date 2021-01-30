@@ -6,7 +6,7 @@ Design for [CloudFlare](https://cloudflare.com) and [Hostker](https://zhujike.co
 
 Hostker library is not longer maintenance after `0def47c655c4a8db3359c1fc34f280ac26431962`.
 
-This project is currently RIIR, Python version will deprecated after RIIR finished.
+This project is in RIIR progress, Python version will deprecated after RIIR finished.
 
 ## Usage
 

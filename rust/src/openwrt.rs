@@ -105,6 +105,7 @@ pub(crate) mod openwrt {
                 .unwrap();
             let status_code = req.status().as_u16();
             return if status_code == 200 {
+                self.save_cookies();
                 true
             } else {
                 eprintln!("Error code: {}", status_code);
@@ -122,7 +123,8 @@ pub(crate) mod openwrt {
             Ok(session_file.write_all(content.as_bytes())?)
         }
 
-        fn load_cookies(&mut self) {
+        fn load_cookies() -> Vec<Cookie> {
+            let mut jar: Vec<Cookie> = vec![];
             let session_path = Path::new(".data/.session");
             let content = if Path::exists(session_path) {
                 let contents = std::fs::read_to_string(session_path);
@@ -136,13 +138,14 @@ pub(crate) mod openwrt {
             if content.len() > 0 {
                 if content.contains(";") {
                     for entry in content.split(";") {
-                        self.jar.push(Cookie::load_from_entry(entry));
+                        jar.push(Cookie::load_from_entry(entry));
                     }
                 }
                 else {
-                    self.jar.push(Cookie::load_from_entry(content.as_str()))
+                    jar.push(Cookie::load_from_entry(content.as_str()))
                 }
             }
+            jar
         }
 
         pub fn new<T>(user: T, password: T, basic_address: T) -> Client
@@ -152,7 +155,7 @@ pub(crate) mod openwrt {
                 .build()
                 .unwrap();
             let configure = Configure::new(user, password, basic_address);
-            Client{configure, client, jar: vec![]}
+            Client{configure, client, jar: Client::load_cookies()}
         }
     }
 }
