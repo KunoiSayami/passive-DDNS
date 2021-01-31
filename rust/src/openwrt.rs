@@ -23,6 +23,14 @@ pub(crate) mod openwrt {
     use std::fs::File;
     use std::io::Write;
 
+    pub fn get_current_timestamp() -> u128{
+        let start = std::time::SystemTime::now();
+        let since_the_epoch = start
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("Time went backwards");
+        since_the_epoch.as_millis()
+    }
+
     struct Cookie {
         key: String,
         value: String
@@ -113,8 +121,16 @@ pub(crate) mod openwrt {
             }
         }
 
+
         pub fn get_current_ip(&self) -> String {
-            return String::new();
+            self.do_login();
+            let resp = self.client.get(format!("{}/cgi-bin/luci/?status=1&_={}",
+                                               &self.configure.basic_address,
+                                               get_current_timestamp()).as_str())
+                .send()
+                .unwrap();
+            let content: serde_json::Value = resp.json().unwrap();
+            content["wan"]["ipaddr"].to_string()
         }
 
         fn save_cookies(&self) -> std::io::Result<()> {

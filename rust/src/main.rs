@@ -25,4 +25,14 @@ use log::{info, debug};
 
 fn main() {
     env_logger::init();
+    let mut config = configparser::ini::Ini::new();
+    config.load("data/config.ini").unwrap();
+    if config.getbool("openwrt", "enabled").unwrap_or(Some(false)).unwrap() {
+        let client = openwrt::openwrt::Client::new(
+            config.get("openwrt", "user").unwrap(),
+            config.get("openwrt", "password").unwrap(),
+            config.get("openwrt", "route").unwrap()
+        );
+        println!("{}", client.get_current_ip());
+    }
 }
