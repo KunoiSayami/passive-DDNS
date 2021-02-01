@@ -1,17 +1,15 @@
 [account]
-interval = 600
 ;extern_ip_uri =
 
 [cloudflare]
 enabled = false
 token =
-; For example, you want to set a.example.com and b.example.com and c.example.moe
+; For example, you want to set a.example.com and b.example.com and c.example.dev
 ; you should set like this
 ; example.com zone id is `ca3d180a0c66ac16da45fad9f7674292'
-; example.moe zone id is `2d9437302c842804ab97f94e657c98af'
-; ipv4_domain = {'ca3d180a0c66ac16da45fad9f7674292': ['a.example.com', 'b.example.com'], '2d9437302c842804ab97f94e657c98af': ['c.example.moe']}
-ipv4_domain = {}
-ipv6_domain = {}
+; example.dev zone id is `2d9437302c842804ab97f94e657c98af'
+; domain = {'ca3d180a0c66ac16da45fad9f7674292': ['a.example.com', 'b.example.com'], '2d9437302c842804ab97f94e657c98af': ['c.example.dev']}
+domain = {}
 
 [openwrt]
 enabled = false

@@ -572,6 +572,7 @@ dependencies = [
  "configparser",
  "env_logger",
  "log",
+ "regex",
  "reqwest",
 ]
 

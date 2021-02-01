@@ -19,6 +19,7 @@
  ** along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 mod openwrt;
+mod cloudflare_api;
 
 use log::{info, debug};
 
