@@ -18,33 +18,34 @@
  ** along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 pub(crate) mod parser {
+    use crate::{cloudflare_api, openwrt};
     use std::path::Path;
     use serde_derive::Deserialize;
 
-    #[derive(Deserialize, Debug)]
+    #[derive(Deserialize)]
     pub struct Configure {
-        account: AccountConfigure,
-        cloudflare: CloudFlareConfigure,
-        openwrt: OpenWRTConfigure
+        pub(crate) account: AccountConfigure,
+        pub(crate) cloudflare: CloudFlareConfigure,
+        pub(crate) openwrt: OpenWRTConfigure
     }
 
-    #[derive(Deserialize, Debug)]
-    struct AccountConfigure {
-        extern_ip_uri: Option<String>
+    #[derive(Deserialize)]
+    pub struct AccountConfigure {
+        pub(crate) extern_ip_uri: Option<String>
     }
 
-    #[derive(Deserialize, Debug)]
-    struct CloudFlareConfigure {
-        token: Option<String>,
-        domain: Option<String>
+    #[derive(Deserialize)]
+    pub struct CloudFlareConfigure {
+        pub(crate) token: Option<String>,
+        pub(crate) domain: Option<String>
     }
 
-    #[derive(Deserialize, Debug)]
-    struct OpenWRTConfigure {
-        enabled: bool,
-        route: Option<String>,
-        user: Option<String>,
-        password: Option<String>
+    #[derive(Deserialize)]
+    pub struct OpenWRTConfigure {
+        pub(crate) enabled: bool,
+        pub(crate) route: Option<String>,
+        pub(crate) user: Option<String>,
+        pub(crate) password: Option<String>
     }
 
     pub fn load<T>(configure_path: T) -> Option<Configure>

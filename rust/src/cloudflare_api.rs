@@ -29,9 +29,10 @@ pub(crate) mod api {
     impl Zone {
         pub fn new<T>(original_string: T) -> Zone
             where T: Into<String> {
-            let basic_re = regex::Regex::new(r"\'([a-f\d]+)\':\s*\[((\'[\w\.]+\',\s*)*\'[\w\.]+\')\]").unwrap();
+            let basic_re = regex::Regex::new(r"'([a-f\d]+)':\s*\[(('[\w\.]+',\s*)*'[\w\.]+')\]").unwrap();
             let domain_re = regex::Regex::new(r"([\w\.]+)").unwrap();
             let original_string = original_string.into();
+            log::debug!("Parse string: {}", &original_string);
             let cap = basic_re.captures(original_string.as_str()).unwrap();
             let zone_id = String::from(&cap[1]);
             log::debug!("Processing zone: {}", zone_id);
@@ -53,7 +54,7 @@ pub(crate) mod api {
     impl Configure {
         pub fn new<T>(domains: T, api_token: T) -> Configure
             where T: Into<String> {
-            let re = regex::Regex::new(r"\'([a-f\d]+\':\s*\[(\'[\w\.]+\',\s*)*\'[\w\.]+\'\])").unwrap();
+            let re = regex::Regex::new(r"('[a-f\d]+':\s*\[('[\w\.]+',\s*)*'[\w\.]+'\])").unwrap();
             let original_domain_string = domains.into();
             let mut zones: Vec<Zone> = vec![];
             for cap in re.captures_iter(&original_domain_string.as_str()) {
