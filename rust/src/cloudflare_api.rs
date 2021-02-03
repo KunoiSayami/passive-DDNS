@@ -17,9 +17,9 @@
  ** You should have received a copy of the GNU Affero General Public License
  ** along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-extern crate log;
 pub(crate) mod api {
     use std::collections::HashMap;
+    use serde_derive::Serialize;
 
     struct Zone {
         zone_id: String,
@@ -27,23 +27,25 @@ pub(crate) mod api {
     }
 
     impl Zone {
-        pub fn new<T>(original_string: &T) -> Zone
-            where T: Into<str> {
+        pub fn new<T>(original_string: T) -> Zone
+            where T: Into<String> {
             let basic_re = regex::Regex::new(r"\'([a-f\d]+)\':\s*\[((\'[\w\.]+\',\s*)*\'[\w\.]+\')\]").unwrap();
             let domain_re = regex::Regex::new(r"([\w\.]+)").unwrap();
-            let cap = basic_re.captures(original_string.into()).unwrap();
+            let original_string = original_string.into();
+            let cap = basic_re.captures(original_string.as_str()).unwrap();
             let zone_id = String::from(&cap[1]);
             log::debug!("Processing zone: {}", zone_id);
             let mut domains: Vec<String> = vec![];
             for cap in domain_re.captures_iter(&cap[2]) {
-                domains.push(String::from(&cap[1]));
-                log::debug!("Push {} to {}", cap[1], zone_id);
+                let domain = String::from(&cap[1]);
+                domains.push(domain.clone());
+                log::debug!("Push {} to {}", domain, zone_id);
             }
             Zone{zone_id, domains}
         }
     }
 
-    struct Configure {
+    pub(crate) struct Configure {
         zones: Vec<Zone>,
         api_token: String
     }
@@ -52,10 +54,11 @@ pub(crate) mod api {
         pub fn new<T>(domains: T, api_token: T) -> Configure
             where T: Into<String> {
             let re = regex::Regex::new(r"\'([a-f\d]+\':\s*\[(\'[\w\.]+\',\s*)*\'[\w\.]+\'\])").unwrap();
-            let original_domain_string = domains.into().as_str();
+            let original_domain_string = domains.into();
             let mut zones: Vec<Zone> = vec![];
-            for cap in re.captures_iter(&original_domain_string) {
-                zones.push(Zone::new(&cap[1]));
+            for cap in re.captures_iter(&original_domain_string.as_str()) {
+                let domain_configure = String::from(&cap[1]);
+                zones.push(Zone::new(domain_configure));
             }
             Configure{zones, api_token: api_token.into()}
         }

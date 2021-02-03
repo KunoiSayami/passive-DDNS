@@ -20,14 +20,15 @@
  */
 mod openwrt;
 mod cloudflare_api;
+mod configparser;
 
 use log::{info, debug};
 
 
 fn main() {
     env_logger::init();
-    let mut config = configparser::ini::Ini::new();
-    config.load("data/config.ini").unwrap();
+    /*let mut config = configparser::ini::Ini::new();
+    config.load("data/config.toml").unwrap();
     if config.getbool("openwrt", "enabled").unwrap_or(Some(false)).unwrap() {
         let client = openwrt::openwrt::Client::new(
             config.get("openwrt", "user").unwrap(),
@@ -35,5 +36,11 @@ fn main() {
             config.get("openwrt", "route").unwrap()
         );
         println!("{}", client.get_current_ip());
-    }
+    }*/
+    let configure = configparser::parser::load("data/config.toml").unwrap();
+    dbg!(configure);
+    /*let cloudflare = cloudflare_api::api::Configure::new(
+        config.get("cloudflare", "domain").unwrap(),
+        config.get("cloudflare", "token").unwrap()
+    );*/
 }
