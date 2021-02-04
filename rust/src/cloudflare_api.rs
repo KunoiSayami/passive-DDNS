@@ -20,10 +20,8 @@
 pub(crate) mod api {
     use std::collections::HashMap;
     use serde_derive::{Deserialize, Serialize};
-    use reqwest::header::HeaderMap;
-    use std::fs::read_dir;
 
-    #[derive(Deserialize, Serialize)]
+    #[derive(Deserialize)]
     struct DNSRecord {
         id: String,
         zone_id: String,
@@ -40,14 +38,36 @@ pub(crate) mod api {
         }
 
         fn update_ns_record(&self, session: &reqwest::blocking::Client) -> bool {
-            let resp = session.post(
-                format!("https://api.cloudflare.com/client/v4/zones/{}/dns_records/{}))",
+            let resp = session.put(
+                format!("https://api.cloudflare.com/client/v4/zones/{}/dns_records/{}",
                         &self.zone_id,
                         &self.id
-                ).as_str()).json(&self)
+                ).as_str()).json(&PutDNSRecord::from(self))
                 .send()
                 .unwrap();
             resp.status().is_success()
+        }
+    }
+
+    #[derive(Serialize)]
+    struct PutDNSRecord {
+        #[serde(rename="type")]
+        t: String,
+        name: String,
+        content: String,
+        proxied: bool,
+        ttl: i32,
+    }
+
+    impl PutDNSRecord {
+        fn from(dns_record: &DNSRecord) -> PutDNSRecord {
+            PutDNSRecord{
+                t: String::from('A'),
+                name: String::from(&dns_record.name),
+                content: String::from(&dns_record.content),
+                proxied: dns_record.proxied,
+                ttl: dns_record.ttl
+            }
         }
     }
 
@@ -81,9 +101,9 @@ pub(crate) mod api {
 
             for domain in &self.domains {
                 let name = domain.as_str();
-                let form: HashMap<&str, &str> = [("type", "A"), ("name", name)].iter().cloned().collect();
-                let resp = session.get(format!("https://api.cloudflare.com/client/v4/zones/{}/dns_records", domain).as_str())
-                    .form(&form)
+                let query: HashMap<&str, &str> = [("type", "A"), ("name", name)].iter().cloned().collect();
+                let resp = session.get(format!("https://api.cloudflare.com/client/v4/zones/{}/dns_records", &self.zone_id).as_str())
+                    .query(&query)
                     .send()
                     .unwrap();
                 let resp_json: serde_json::Value = resp.json().unwrap();

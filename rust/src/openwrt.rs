@@ -17,7 +17,7 @@
  ** You should have received a copy of the GNU Affero General Public License
  ** along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-pub(crate) mod openwrt {
+pub(crate) mod api {
     use std::collections::HashMap;
     use std::path::Path;
     use std::fs::File;
@@ -90,7 +90,7 @@ pub(crate) mod openwrt {
             resp.as_u16() == 200
         }
 
-        fn parse_cookies(cookies: &Vec<Cookie>) -> String {
+        fn parse_cookies(cookies: &[Cookie]) -> String {
             let mut cookie_string: Vec<String> = vec![];
             for cookie in cookies.iter() {
                 cookie_string.push(cookie.paste())
@@ -112,8 +112,8 @@ pub(crate) mod openwrt {
                 .send()
                 .unwrap();
             let status_code = req.status().as_u16();
-            return if status_code == 200 {
-                self.save_cookies();
+            if status_code == 200 {
+                self.save_cookies().unwrap();
                 true
             } else {
                 eprintln!("Error code: {}", status_code);
@@ -136,7 +136,7 @@ pub(crate) mod openwrt {
         fn save_cookies(&self) -> std::io::Result<()> {
             let mut session_file = File::open("data/.session")?;
             let content = Client::parse_cookies(&self.jar);
-            Ok(session_file.write_all(content.as_bytes())?)
+            session_file.write_all(content.as_bytes())
         }
 
         fn load_cookies() -> Vec<Cookie> {
@@ -151,9 +151,9 @@ pub(crate) mod openwrt {
             } else {
                 String::new()
             };
-            if content.len() > 0 {
-                if content.contains(";") {
-                    for entry in content.split(";") {
+            if !content.is_empty() {
+                if content.contains(';') {
+                    for entry in content.split(';') {
                         jar.push(Cookie::load_from_entry(entry));
                     }
                 }
