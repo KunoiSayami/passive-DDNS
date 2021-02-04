@@ -24,6 +24,18 @@ mod configparser;
 
 use log::{info, debug};
 
+fn get_current_ip(configure: &Option<String>,
+                  openwrt_client: Option<openwrt::openwrt::Client>) -> String {
+    match openwrt_client {
+        Some(client) => client.get_current_ip(),
+        None => String::from(reqwest::blocking::get(
+            configure.as_ref().unwrap_or(&String::from("https://api-ipv4.ip.sb/ip")).as_str()
+        ).unwrap()
+            .text()
+            .unwrap()
+            .trim())
+    }
+}
 
 fn main() {
     env_logger::init();
@@ -32,11 +44,14 @@ fn main() {
         configure.cloudflare.domain.unwrap(),
         configure.cloudflare.token.unwrap()
     );
-    if configure.openwrt.enabled {
-        let client = openwrt::openwrt::Client::new(
+    let openwrt_client = if configure.openwrt.enabled {
+        Some(openwrt::openwrt::Client::new(
             configure.openwrt.user.unwrap(),
             configure.openwrt.password.unwrap(),
             configure.openwrt.route.unwrap()
-        );
-    }
+        ))
+    } else {
+        None
+    };
+    println!("Current ip: {}", get_current_ip(&configure.account.extern_ip_uri, openwrt_client));
 }

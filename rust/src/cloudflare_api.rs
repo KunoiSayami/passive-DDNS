@@ -19,7 +19,37 @@
  */
 pub(crate) mod api {
     use std::collections::HashMap;
-    use serde_derive::Serialize;
+    use serde_derive::{Deserialize, Serialize};
+    use reqwest::header::HeaderMap;
+    use std::fs::read_dir;
+
+    #[derive(Deserialize, Serialize)]
+    struct DNSRecord {
+        id: String,
+        zone_id: String,
+        name: String,
+        content: String,
+        proxied: bool,
+        ttl: i32,
+    }
+
+    impl DNSRecord {
+        fn update_content<T>(&mut self, content: T)
+            where T: Into<String> {
+            self.content = content.into();
+        }
+
+        fn update_ns_record(&self, session: &reqwest::blocking::Client) -> bool {
+            let resp = session.post(
+                format!("https://api.cloudflare.com/client/v4/zones/{}/dns_records/{}))",
+                        &self.zone_id,
+                        &self.id
+                ).as_str()).json(&self)
+                .send()
+                .unwrap();
+            resp.status().is_success()
+        }
+    }
 
     struct Zone {
         zone_id: String,
@@ -44,11 +74,31 @@ pub(crate) mod api {
             }
             Zone{zone_id, domains}
         }
+
+        pub fn request_domain_record(&self, session: &reqwest::blocking::Client) -> Vec<DNSRecord>{
+            let mut records: Vec<DNSRecord> = Default::default();
+            //let form: HashMap::<_, _>::from_iter = (("test", "test"), ("test", "test"));
+
+            for domain in &self.domains {
+                let name = domain.as_str();
+                let form: HashMap<&str, &str> = [("type", "A"), ("name", name)].iter().cloned().collect();
+                let resp = session.get(format!("https://api.cloudflare.com/client/v4/zones/{}/dns_records", domain).as_str())
+                    .form(&form)
+                    .send()
+                    .unwrap();
+                let resp_json: serde_json::Value = resp.json().unwrap();
+                let dns_record: DNSRecord = serde_json::from_value(resp_json["result"][0].clone())
+                    .unwrap();
+                records.push(dns_record);
+            }
+            records
+        }
     }
 
     pub(crate) struct Configure {
         zones: Vec<Zone>,
-        api_token: String
+        api_token: String,
+        session: reqwest::blocking::Client
     }
 
     impl Configure {
@@ -61,7 +111,40 @@ pub(crate) mod api {
                 let domain_configure = String::from(&cap[1]);
                 zones.push(Zone::new(domain_configure));
             }
-            Configure{zones, api_token: api_token.into()}
+            let api_token = api_token.into();
+            let mut header_map = reqwest::header::HeaderMap::new();
+            header_map.insert("Authorization", format!("Bearer {}", api_token).parse().unwrap());
+            header_map.insert("Content-Type", String::from("application/json").parse().unwrap());
+            header_map.insert("Connection", String::from("close").parse().unwrap());
+
+            let session = reqwest::blocking::Client::builder()
+                .default_headers(header_map)
+                .build()
+                .unwrap();
+
+            Configure{zones, api_token: api_token.into(), session}
+        }
+
+        fn fetch_data(&self) -> Vec<DNSRecord>{
+            let mut result: Vec<DNSRecord> = Default::default();
+            for zone in &self.zones {
+                result.extend(zone.request_domain_record(&self.session));
+            }
+            result
+        }
+
+        pub fn update_dns_data(&self, new_data: String) {
+            let mut need_updated: Vec<DNSRecord> = Default::default();
+            for record in self.fetch_data() {
+                if record.content != new_data {
+                    let mut mut_record = record;
+                    mut_record.content = String::from(&new_data);
+                    need_updated.push(mut_record);
+                }
+            }
+            for record in need_updated {
+                record.update_ns_record(&self.session);
+            }
         }
     }
 }
