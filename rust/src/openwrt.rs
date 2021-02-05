@@ -23,7 +23,7 @@ pub(crate) mod api {
     use std::fs::File;
     use std::io::Write;
 
-    pub fn get_current_timestamp() -> u128{
+    pub fn get_current_timestamp() -> u128 {
         let start = std::time::SystemTime::now();
         let since_the_epoch = start
             .duration_since(std::time::UNIX_EPOCH)
@@ -79,7 +79,7 @@ pub(crate) mod api {
         fn check_login(&self) -> bool {
             log::debug!("Check login");
             let resp =
-                match reqwest::blocking::get(format!("{}/cgi-bin/luci",
+                match reqwest::blocking::get(format!("{}/cgi-bin/luci/",
                                                      &self.configure.basic_address).as_str()) {
                     Ok(req) => req,
                     Err(e) => {
@@ -107,7 +107,7 @@ pub(crate) mod api {
             post_data.insert("luci_password", &self.configure.password);
             let req = self.client.post(format!("{}/cgi-bin/luci", self.configure.basic_address)
                 .as_str())
-                .json(&post_data)
+                .form(&post_data)
                 .header("cookies", Client::parse_cookies(&self.jar))
                 .send()
                 .unwrap();
@@ -130,11 +130,17 @@ pub(crate) mod api {
                 .send()
                 .unwrap();
             let content: serde_json::Value = resp.json().unwrap();
-            content["wan"]["ipaddr"].to_string()
+
+            String::from(content["wan"]["ipaddr"].as_str().unwrap())
         }
 
         fn save_cookies(&self) -> std::io::Result<()> {
-            let mut session_file = File::open("data/.session")?;
+            let path = std::path::Path::new("data/.session");
+            let mut session_file = if std::path::Path::exists(&path) {
+                File::open(&path)
+            } else {
+                File::create(&path)
+            }?;
             let content = Client::parse_cookies(&self.jar);
             session_file.write_all(content.as_bytes())
         }
@@ -168,6 +174,7 @@ pub(crate) mod api {
             where T: Into<String> {
             let client = reqwest::blocking::ClientBuilder::new()
                 .cookie_store(true)
+                .redirect(reqwest::redirect::Policy::limited(5))
                 .build()
                 .unwrap();
             let configure = Configure::new(user, password, basic_address);
