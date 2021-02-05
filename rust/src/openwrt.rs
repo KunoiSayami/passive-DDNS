@@ -22,6 +22,7 @@ pub(crate) mod api {
     use std::path::Path;
     use std::fs::File;
     use std::io::Write;
+    use serde::{Serialize, Deserialize};
 
     pub fn get_current_timestamp() -> u128 {
         let start = std::time::SystemTime::now();
@@ -31,6 +32,7 @@ pub(crate) mod api {
         since_the_epoch.as_millis()
     }
 
+    #[derive(Serialize, Deserialize)]
     struct Cookie {
         key: String,
         value: String
@@ -49,6 +51,34 @@ pub(crate) mod api {
         fn load_from_entry(entry: &str) -> Cookie {
             let slice = entry.split_once("=").unwrap();
             Cookie::new(slice.0, slice.1)
+        }
+    }
+
+
+    #[derive(Serialize, Deserialize)]
+    struct Cookies {
+        cookies: Vec<Cookie>
+    }
+
+    impl Cookies {
+        fn new() -> Cookies {
+            Cookies{cookies: Default::default()}
+        }
+
+        fn from_response(response: &reqwest::blocking::Response) -> Cookies {
+            let mut cookies: Vec<Cookie> = Default::default();
+            for cookie in response.cookies() {
+                cookies.push(Cookie::load_from_entry(cookie.value()))
+            }
+            Cookies{cookies}
+        }
+
+        fn paste(&self) -> String {
+            let mut cookies: Vec<String> = Default::default();
+            for cookie in &self.cookies {
+                cookies.push(cookie.paste())
+            }
+            cookies.join("; ")
         }
     }
 
@@ -72,7 +102,6 @@ pub(crate) mod api {
     pub struct Client {
         configure: Configure,
         client: reqwest::blocking::Client,
-        jar: Vec<Cookie>,
     }
 
     impl Client {
@@ -90,14 +119,6 @@ pub(crate) mod api {
             resp.as_u16() == 200
         }
 
-        fn parse_cookies(cookies: &[Cookie]) -> String {
-            let mut cookie_string: Vec<String> = vec![];
-            for cookie in cookies.iter() {
-                cookie_string.push(cookie.paste())
-            }
-            cookie_string.join("; ")
-        }
-
         pub fn do_login(&self) -> bool {
             if self.check_login() {
                 return true
@@ -105,22 +126,21 @@ pub(crate) mod api {
             let mut post_data: HashMap<&str, &String> = HashMap::new();
             post_data.insert("luci_username", &self.configure.user);
             post_data.insert("luci_password", &self.configure.password);
-            let req = self.client.post(format!("{}/cgi-bin/luci", self.configure.basic_address)
+            let resp = self.client.post(format!("{}/cgi-bin/luci", self.configure.basic_address)
                 .as_str())
                 .form(&post_data)
-                .header("cookies", Client::parse_cookies(&self.jar))
+                //.header("cookies", Client::parse_cookies(&self.jar))
                 .send()
                 .unwrap();
-            let status_code = req.status().as_u16();
+            let status_code = resp.status().as_u16();
             if status_code == 200 {
-                self.save_cookies().unwrap();
+                self.save_cookies(resp).unwrap();
                 true
             } else {
                 eprintln!("Error code: {}", status_code);
                 false
             }
         }
-
 
         pub fn get_current_ip(&self) -> String {
             self.do_login();
@@ -134,40 +154,29 @@ pub(crate) mod api {
             String::from(content["wan"]["ipaddr"].as_str().unwrap())
         }
 
-        fn save_cookies(&self) -> std::io::Result<()> {
-            let path = std::path::Path::new("data/.session");
-            let mut session_file = if std::path::Path::exists(&path) {
-                File::open(&path)
-            } else {
-                File::create(&path)
-            }?;
-            let content = Client::parse_cookies(&self.jar);
-            session_file.write_all(content.as_bytes())
+        fn save_cookies(&self, resp: reqwest::blocking::Response) -> std::io::Result<()> {
+            let mut session_file = std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open("data/.session")
+                .unwrap();
+            let content = Cookies::from_response(&resp);
+            session_file.write_all(serde_json::to_string(&content)?.as_bytes())
         }
 
-        fn load_cookies() -> Vec<Cookie> {
-            let mut jar: Vec<Cookie> = vec![];
+        fn load_cookies() -> Cookies {
+            //let mut cookies= Cookies::new();
             let session_path = Path::new(".data/.session");
-            let content = if Path::exists(session_path) {
-                let contents = std::fs::read_to_string(session_path);
-                match contents {
-                    Ok(content) => content,
-                    Err(_e) => String::new()
+            if Path::exists(session_path) {
+                match std::fs::read_to_string(session_path) {
+                    Ok(content) => serde_json::from_str(content.as_str())
+                        .unwrap_or(Cookies::new()),
+                    Err(_e) => Cookies::new()
                 }
             } else {
-                String::new()
-            };
-            if !content.is_empty() {
-                if content.contains(';') {
-                    for entry in content.split(';') {
-                        jar.push(Cookie::load_from_entry(entry));
-                    }
-                }
-                else {
-                    jar.push(Cookie::load_from_entry(content.as_str()))
-                }
+                Cookies::new()
             }
-            jar
         }
 
         pub fn new<T>(user: T, password: T, basic_address: T) -> Client
@@ -178,7 +187,7 @@ pub(crate) mod api {
                 .build()
                 .unwrap();
             let configure = Configure::new(user, password, basic_address);
-            Client{configure, client, jar: Client::load_cookies()}
+            Client{configure, client}
         }
     }
 }
