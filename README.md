@@ -1,26 +1,21 @@
 # passive-DDNS
 
-Design for [CloudFlare](https://cloudflare.com) and [Hostker](https://zhujike.com), It use in has public IP home network to auto change `A` record which domain use cloudflare/hostker ns.
+Design for [CloudFlare](https://cloudflare.com) , It use in has public IP home network to auto change `A` record which domain use cloudflare ns.
 
 ## Notice
 
-Hostker library is not longer maintenance after `0def47c655c4a8db3359c1fc34f280ac26431962`.
+This project is finished RIIR progress, and it supply cloudflare NS only. 
 
-This project is in RIIR progress, Python version will deprecated after RIIR finished.
+Python version is deprecated after `b690919c83f7fb879c2e34db8cb7e87262d0f565` commit,
+You can still clone python code from `py_latest` branch.
 
 ## Usage
 
-In principle, need Python 3.7.x interpreter. And `requests`, `bs4` library must available.
-
-Copy `config.ini.default` to `config.ini`, parse your `email` (hostker), `token`, `header_domain`, in configure file. Then, using this command to run program:
+Copy `config.toml.default` to `config.ini`, parse your `token`, `domain`, in configure file. Then, using this command to run program:
 
 ```bash
-python3 pddns.py
+cargo run --release
 ```
-
-### Reload
-
-Send `SIGUSR1` signal to main process for skip waiting.
 
 ## License
 

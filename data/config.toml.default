@@ -2,7 +2,7 @@
 # extern_ip_uri =
 
 [cloudflare]
-token = "mgWFTCIYiFQD9e9SUYe4zM386OylMSM4LeZ6Ne3J"
+token = ""
 # For example, you want to set a.example.com and b.example.com and c.example.moe
 # you should set like this
 # example.com zone id is `ca3d180a0c66ac16da45fad9f7674292'
