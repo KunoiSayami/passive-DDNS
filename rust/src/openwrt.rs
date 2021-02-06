@@ -20,9 +20,9 @@
 pub(crate) mod api {
     use std::collections::HashMap;
     use std::path::Path;
-    use std::fs::File;
     use std::io::Write;
     use serde::{Serialize, Deserialize};
+    use reqwest::header::HeaderMap;
 
     pub fn get_current_timestamp() -> u128 {
         let start = std::time::SystemTime::now();
@@ -48,9 +48,8 @@ pub(crate) mod api {
             format!("{}={}", &self.key, &self.value)
         }
 
-        fn load_from_entry(entry: &str) -> Cookie {
-            let slice = entry.split_once("=").unwrap();
-            Cookie::new(slice.0, slice.1)
+        fn load_from_entry(entry: reqwest::cookie::Cookie) -> Cookie {
+            Cookie::new(entry.name(), entry.value())
         }
     }
 
@@ -68,17 +67,46 @@ pub(crate) mod api {
         fn from_response(response: &reqwest::blocking::Response) -> Cookies {
             let mut cookies: Vec<Cookie> = Default::default();
             for cookie in response.cookies() {
-                cookies.push(Cookie::load_from_entry(cookie.value()))
+                cookies.push(Cookie::load_from_entry(cookie))
             }
             Cookies{cookies}
         }
 
-        fn paste(&self) -> String {
+        fn to_string(&self) -> String {
             let mut cookies: Vec<String> = Default::default();
             for cookie in &self.cookies {
                 cookies.push(cookie.paste())
             }
             cookies.join("; ")
+        }
+
+        fn save_cookies(resp: reqwest::blocking::Response) -> std::io::Result<()> {
+            let mut session_file = std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open("data/.session")
+                .unwrap();
+            let content = Cookies::from_response(&resp);
+            session_file.write_all(serde_json::to_string(&content)?.as_bytes())
+        }
+
+        fn load_cookies() -> Cookies {
+            //let mut cookies= Cookies::new();
+            let session_path = Path::new(".data/.session");
+            if Path::exists(session_path) {
+                match std::fs::read_to_string(session_path) {
+                    Ok(content) => serde_json::from_str(content.as_str())
+                        .unwrap_or_else(|_| Cookies::new()),
+                    Err(_e) => Cookies::new()
+                }
+            } else {
+                Cookies::new()
+            }
+        }
+
+        fn len(&self) -> usize {
+            self.cookies.len()
         }
     }
 
@@ -101,15 +129,23 @@ pub(crate) mod api {
 
     pub struct Client {
         configure: Configure,
-        client: reqwest::blocking::Client,
+        client: reqwest::blocking::Client
     }
 
     impl Client {
-        fn check_login(&self) -> bool {
+        fn check_login(&self, cookies: &Cookies) -> bool {
             log::debug!("Check login");
+            let mut header_map = HeaderMap::new();
+            if cookies.len() > 0 {
+                header_map.append("cookies", cookies.to_string().parse().unwrap());
+            }
+
+            let request_builder = self.client.get(format!("{}/cgi-bin/luci/",
+                                                          &self.configure.basic_address).as_str())
+                .headers(header_map);
+
             let resp =
-                match reqwest::blocking::get(format!("{}/cgi-bin/luci/",
-                                                     &self.configure.basic_address).as_str()) {
+                match request_builder.send() {
                     Ok(req) => req,
                     Err(e) => {
                         panic!("Error with status code: {}", e);
@@ -119,9 +155,10 @@ pub(crate) mod api {
             resp.as_u16() == 200
         }
 
-        pub fn do_login(&self) -> bool {
-            if self.check_login() {
-                return true
+        fn do_login(&self, cookies: &Cookies) -> Result<bool, reqwest::blocking::Response> {
+            //let cookies = Cookies::load_cookies();
+            if self.check_login(&cookies) {
+                return Ok(true)
             }
             let mut post_data: HashMap<&str, &String> = HashMap::new();
             post_data.insert("luci_username", &self.configure.user);
@@ -129,54 +166,39 @@ pub(crate) mod api {
             let resp = self.client.post(format!("{}/cgi-bin/luci", self.configure.basic_address)
                 .as_str())
                 .form(&post_data)
-                //.header("cookies", Client::parse_cookies(&self.jar))
+                //.header("cookies", cookies.to_string())
                 .send()
                 .unwrap();
             let status_code = resp.status().as_u16();
+            log::debug!("Status code: {}", status_code);
             if status_code == 200 {
-                self.save_cookies(resp).unwrap();
-                true
+                Cookies::save_cookies(resp).unwrap();
+                Ok(false)
             } else {
-                eprintln!("Error code: {}", status_code);
-                false
+                log::error!("Error code: {}", status_code);
+                Err(resp)
             }
         }
 
         pub fn get_current_ip(&self) -> String {
-            self.do_login();
+            let cookies = Cookies::load_cookies();
+            let need_load_cookie = self.do_login(&cookies).unwrap();
+
+            let mut header_map = HeaderMap::new();
+            if need_load_cookie {
+                header_map.append("cookies", cookies.to_string().parse().unwrap());
+            }
+
             let resp = self.client.get(format!("{}/cgi-bin/luci/?status=1&_={}",
                                                &self.configure.basic_address,
                                                get_current_timestamp()).as_str())
+                .headers(header_map)
                 .send()
                 .unwrap();
+
             let content: serde_json::Value = resp.json().unwrap();
 
             String::from(content["wan"]["ipaddr"].as_str().unwrap())
-        }
-
-        fn save_cookies(&self, resp: reqwest::blocking::Response) -> std::io::Result<()> {
-            let mut session_file = std::fs::OpenOptions::new()
-                .create(true)
-                .write(true)
-                .truncate(true)
-                .open("data/.session")
-                .unwrap();
-            let content = Cookies::from_response(&resp);
-            session_file.write_all(serde_json::to_string(&content)?.as_bytes())
-        }
-
-        fn load_cookies() -> Cookies {
-            //let mut cookies= Cookies::new();
-            let session_path = Path::new(".data/.session");
-            if Path::exists(session_path) {
-                match std::fs::read_to_string(session_path) {
-                    Ok(content) => serde_json::from_str(content.as_str())
-                        .unwrap_or(Cookies::new()),
-                    Err(_e) => Cookies::new()
-                }
-            } else {
-                Cookies::new()
-            }
         }
 
         pub fn new<T>(user: T, password: T, basic_address: T) -> Client
