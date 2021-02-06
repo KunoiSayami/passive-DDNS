@@ -23,6 +23,7 @@ pub(crate) mod api {
     use std::io::Write;
     use serde::{Serialize, Deserialize};
     use reqwest::header::HeaderMap;
+    use regex::internal::Input;
 
     pub fn get_current_timestamp() -> u128 {
         let start = std::time::SystemTime::now();
@@ -44,11 +45,12 @@ pub(crate) mod api {
             Cookie{key: key.into(), value: value.into()}
         }
 
-        fn paste(&self) -> String {
+        fn to_string(&self) -> String {
             format!("{}={}", &self.key, &self.value)
         }
 
         fn load_from_entry(entry: reqwest::cookie::Cookie) -> Cookie {
+            log::debug!("{}={}", entry.name(), entry.value());
             Cookie::new(entry.name(), entry.value())
         }
     }
@@ -66,7 +68,9 @@ pub(crate) mod api {
 
         fn from_response(response: &reqwest::blocking::Response) -> Cookies {
             let mut cookies: Vec<Cookie> = Default::default();
+            log::debug!("Cookie length: {:?}", response.headers());
             for cookie in response.cookies() {
+                log::debug!("{:?}", cookie);
                 cookies.push(Cookie::load_from_entry(cookie))
             }
             Cookies{cookies}
@@ -75,7 +79,7 @@ pub(crate) mod api {
         fn to_string(&self) -> String {
             let mut cookies: Vec<String> = Default::default();
             for cookie in &self.cookies {
-                cookies.push(cookie.paste())
+                cookies.push(cookie.to_string())
             }
             cookies.join("; ")
         }
@@ -93,14 +97,22 @@ pub(crate) mod api {
 
         fn load_cookies() -> Cookies {
             //let mut cookies= Cookies::new();
-            let session_path = Path::new(".data/.session");
+            log::debug!("Loading cookies");
+            let session_path = Path::new("data/.session");
             if Path::exists(session_path) {
                 match std::fs::read_to_string(session_path) {
                     Ok(content) => serde_json::from_str(content.as_str())
-                        .unwrap_or_else(|_| Cookies::new()),
-                    Err(_e) => Cookies::new()
+                        .unwrap_or_else(|_| {
+                            log::warn!("Got unexpected error while parse json, load default cookies");
+                            Cookies::new()
+                        }),
+                    Err(_e) => {
+                        log::warn!("Got unexpected error, load default cookies");
+                        Cookies::new()
+                    }
                 }
             } else {
+                log::warn!("File not found, fallback to default");
                 Cookies::new()
             }
         }
@@ -137,6 +149,7 @@ pub(crate) mod api {
             log::debug!("Check login");
             let mut header_map = HeaderMap::new();
             if cookies.len() > 0 {
+                log::debug!("Load cookies");
                 header_map.append("cookies", cookies.to_string().parse().unwrap());
             }
 
@@ -160,6 +173,7 @@ pub(crate) mod api {
             if self.check_login(&cookies) {
                 return Ok(true)
             }
+            log::debug!("Trying re-login");
             let mut post_data: HashMap<&str, &String> = HashMap::new();
             post_data.insert("luci_username", &self.configure.user);
             post_data.insert("luci_password", &self.configure.password);
@@ -171,7 +185,7 @@ pub(crate) mod api {
                 .unwrap();
             let status_code = resp.status().as_u16();
             log::debug!("Status code: {}", status_code);
-            if status_code == 200 {
+            if status_code == 200 || status_code == 302 {
                 Cookies::save_cookies(resp).unwrap();
                 Ok(false)
             } else {
@@ -205,7 +219,7 @@ pub(crate) mod api {
             where T: Into<String> {
             let client = reqwest::blocking::ClientBuilder::new()
                 .cookie_store(true)
-                .redirect(reqwest::redirect::Policy::limited(5))
+                .redirect(reqwest::redirect::Policy::none())
                 .build()
                 .unwrap();
             let configure = Configure::new(user, password, basic_address);
