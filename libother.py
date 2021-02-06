@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # libother.py
-# Copyright (C) 2020 KunoiSayami
+# Copyright (C) 2020-2021-2021 KunoiSayami
 #
 # This module is part of passive-DDNS and is released under
 # the AGPL v3 License: https://www.gnu.org/licenses/agpl-3.0.txt
@@ -20,6 +20,7 @@
 import logging
 import time
 from abc import ABCMeta, abstractmethod
+from typing import List, Optional
 
 import bs4
 import requests
@@ -61,13 +62,27 @@ class IPIPdotNet(IPQuery):
 
 
 class SimpleIPQuery(IPQuery):
-    url = 'https://api-ipv4.ip.sb/ip'
+    urls = ['https://api-ipv4.ip.sb/ip']
 
     @classmethod
-    def get_ip(cls) -> str:
-        r = requests.get(cls.url)
-        r.raise_for_status()
-        return r.text.strip()
+    def get_ip(cls) -> Optional[str]:
+        r = None
+        for url in cls.urls:
+            try:
+                req = requests.get(url, verify=False)
+                req.raise_for_status()
+                r = req.text.strip()
+                logger.info("current ip => %s", r)
+                req.close()
+                return r
+            except requests.ConnectionError:
+                continue
+        return r
+
+    @classmethod
+    def extend_ip_from_list(cls, ips: List[str]) -> None:
+        for x in ips:
+            cls.urls.insert(0, x)
 
     @classmethod
     def set_url(cls, url: str) -> str:

@@ -18,7 +18,6 @@
  ** along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 pub(crate) mod parser {
-    use crate::{cloudflare_api, openwrt};
     use std::path::Path;
     use serde_derive::Deserialize;
 

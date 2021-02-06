@@ -1,4 +1,3 @@
-#![feature(str_split_once)]
 /*
  ** Copyright (C) 2021 KunoiSayami
  **
@@ -22,7 +21,7 @@ mod openwrt;
 mod cloudflare_api;
 mod configparser;
 
-use log::{info, debug};
+use log::info;
 
 fn get_current_ip(configure: &Option<String>,
                   openwrt_client: Option<openwrt::api::Client>) -> String {
@@ -54,6 +53,6 @@ fn main() {
         None
     };
     let current_ip = get_current_ip(&configure.account.extern_ip_uri, openwrt_client);
-    println!("Current ip: {}", current_ip);
+    info!("Current ip: {}", current_ip);
     cloudflare.update_dns_data(current_ip);
 }

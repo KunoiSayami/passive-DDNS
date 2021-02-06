@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # absddns.py
-# Copyright (C) 2018-2020 KunoiSayami and contributors
+# Copyright (C) 2018-2021 KunoiSayami and contributors
 #
 # This module is part of passive-DDNS and is released under
 # the AGPL v3 License: https://www.gnu.org/licenses/agpl-3.0.txt
@@ -23,6 +23,7 @@ import signal
 import sys
 import time
 import traceback
+import platform
 from abc import ABCMeta, abstractmethod
 from configparser import ConfigParser
 from subprocess import TimeoutExpired
@@ -50,7 +51,7 @@ class AbstractDDNS(metaclass=ABCMeta):
         self.logger.debug('Loading configure file')
 
         self.interval: int = config.getint('account', 'interval', fallback=600)
-        libother.SimpleIPQuery.set_url(config.get('account', 'extern_ip_uri', fallback=libother.SimpleIPQuery.url))
+        libother.SimpleIPQuery.extend_ip_from_list(config.get('account', 'extern_ip_uris', fallback=[]))
 
         self.tplink_enabled: bool = config.getboolean('tplink', 'enabled', fallback=False)
         if self.tplink_enabled:
@@ -64,7 +65,10 @@ class AbstractDDNS(metaclass=ABCMeta):
                 config.get('openwrt', 'password'))
 
         self._reload_request: bool = False
-        signal.signal(10, self._handle_reload)
+        if platform.system() != 'Windows':
+            signal.signal(10, self._handle_reload)
+        else:
+            self.logger.info("Ignore reload command in Windows platform")
 
     @abstractmethod
     def handle_reload(self) -> None:
@@ -95,7 +99,7 @@ class AbstractDDNS(metaclass=ABCMeta):
                 else:
                     self.logger.debug('IP unchanged')
                 if _exception:
-                    self.logger.info('Program woking normally')
+                    self.logger.info('Program working normally')
             except AssertionError as e:
                 self.logger.exception('Catch AssertionError, Program will now exit.')
                 raise e
@@ -107,7 +111,7 @@ class AbstractDDNS(metaclass=ABCMeta):
                 time.sleep(10)
             except:
                 self.logger.critical('Got unexpected error', exc_info=True)
-                time.sleep(10)  # Failsafe
+                time.sleep(self.interval / 3)  # Failsafe
             else:
                 try:
                     time.sleep(self.interval)

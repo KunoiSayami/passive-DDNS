@@ -1,6 +1,6 @@
 [account]
 interval = 600
-;extern_ip_uri =
+;extern_ip_uris =
 
 [cloudflare]
 enabled = false

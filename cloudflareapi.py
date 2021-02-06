@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # cloudflareapi.py
-# Copyright (C) 2020 KunoiSayami and contributors
+# Copyright (C) 2020-2021 KunoiSayami and contributors
 #
 # This module is part of passive-DDNS and is released under
 # the AGPL v3 License: https://www.gnu.org/licenses/agpl-3.0.txt
@@ -76,6 +76,8 @@ class CloudFlareApi:
         else:
             self.domains = ast.literal_eval(config.get('cloudflare', 'ipv4_domain'))
         self.session = requests.Session()
+        self.session.verify = False
+        self.session.proxies = {'http': "http://127.0.0.1:8888/", 'https': "http://127.0.0.1:8888/"}
         self.session.headers.update({
             'Authorization': f'Bearer {self.api_token}',
             'Content-Type': 'application/json',

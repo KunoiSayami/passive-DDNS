@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # pddns.py
-# Copyright (C) 2020 KunoiSayami and contributors
+# Copyright (C) 2020-2021 KunoiSayami and contributors
 #
 # This module is part of passive-DDNS and is released under
 # the AGPL v3 License: https://www.gnu.org/licenses/agpl-3.0.txt
@@ -30,6 +30,9 @@ if __name__ == "__main__":
     else:
         try:
             import coloredlogs
+            import platform
+            if platform.system() == 'Windows':
+                raise ModuleNotFoundError
             coloredlogs.install(logging.DEBUG, fmt='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %('
                                                    'lineno)d - %(message)s')
         except ModuleNotFoundError:

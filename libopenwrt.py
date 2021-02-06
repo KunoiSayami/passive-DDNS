@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # libopenwrt.py
-# Copyright (C) 2020 KunoiSayami
+# Copyright (C) 2020-2021 KunoiSayami
 #
 # This module is part of passive-DDNS and is released under
 # the AGPL v3 License: https://www.gnu.org/licenses/agpl-3.0.txt

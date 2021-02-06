@@ -23,7 +23,6 @@ pub(crate) mod api {
     use std::io::Write;
     use serde::{Serialize, Deserialize};
     use reqwest::header::HeaderMap;
-    use regex::internal::Input;
 
     pub fn get_current_timestamp() -> u128 {
         let start = std::time::SystemTime::now();
@@ -45,7 +44,7 @@ pub(crate) mod api {
             Cookie{key: key.into(), value: value.into()}
         }
 
-        fn to_string(&self) -> String {
+        fn to_entry_string(&self) -> String {
             format!("{}={}", &self.key, &self.value)
         }
 
@@ -76,10 +75,10 @@ pub(crate) mod api {
             Cookies{cookies}
         }
 
-        fn to_string(&self) -> String {
+        fn to_header_string(&self) -> String {
             let mut cookies: Vec<String> = Default::default();
             for cookie in &self.cookies {
-                cookies.push(cookie.to_string())
+                cookies.push(cookie.to_entry_string())
             }
             cookies.join("; ")
         }
@@ -149,8 +148,7 @@ pub(crate) mod api {
             log::debug!("Check login");
             let mut header_map = HeaderMap::new();
             if cookies.len() > 0 {
-                log::debug!("Load cookies");
-                header_map.append("cookies", cookies.to_string().parse().unwrap());
+                header_map.append("cookie", cookies.to_header_string().parse().unwrap());
             }
 
             let request_builder = self.client.get(format!("{}/cgi-bin/luci/",
@@ -180,9 +178,9 @@ pub(crate) mod api {
             let resp = self.client.post(format!("{}/cgi-bin/luci", self.configure.basic_address)
                 .as_str())
                 .form(&post_data)
-                //.header("cookies", cookies.to_string())
+                //.header("cookie", cookies.to_entry_string())
                 .send()
-                .unwrap();
+                .expect("OpenWRT login failure");
             let status_code = resp.status().as_u16();
             log::debug!("Status code: {}", status_code);
             if status_code == 200 || status_code == 302 {
@@ -200,7 +198,7 @@ pub(crate) mod api {
 
             let mut header_map = HeaderMap::new();
             if need_load_cookie {
-                header_map.append("cookies", cookies.to_string().parse().unwrap());
+                header_map.append("cookie", cookies.to_header_string().parse().unwrap());
             }
 
             let resp = self.client.get(format!("{}/cgi-bin/luci/?status=1&_={}",
@@ -208,7 +206,7 @@ pub(crate) mod api {
                                                get_current_timestamp()).as_str())
                 .headers(header_map)
                 .send()
-                .unwrap();
+                .expect("Can't get status json");
 
             let content: serde_json::Value = resp.json().unwrap();
 
