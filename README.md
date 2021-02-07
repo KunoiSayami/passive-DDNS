@@ -17,6 +17,31 @@ Copy `config.toml.default` to `config.ini`, parse your `token`, `domain`, in con
 cargo run --release
 ```
 
+### With Systemd
+
+You should build this project first:
+
+```shell
+cargo build --release
+```
+
+Then, put `data/passive-ddns.timer` and `data/passive-ddns.service` to `/etc/systemd/system` folder.
+
+After exec daemon reload command:
+
+```shell
+sudo systemctl daemon-reload
+```
+
+You should can see the status of `passive-ddns.service` and `passive-ddns.timer`.
+
+Don't forget enable them by:
+
+```shell
+sudo systemctl enable --now passive-ddns.timer
+sudo systemctl enable --now passive-ddns.service
+```
+
 ## License
 
 [![](https://www.gnu.org/graphics/agplv3-155x51.png)](https://www.gnu.org/licenses/agpl-3.0.txt)

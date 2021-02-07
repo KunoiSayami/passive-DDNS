@@ -8,5 +8,5 @@ target/
 
 .idea/
 data/*
-!data/config.toml.default
+!data/*.default
 .vscode/

@@ -19,6 +19,7 @@
  */
 pub(crate) mod parser {
     use std::path::Path;
+    use crate::{cloudflare_api, openwrt};
     use serde_derive::Deserialize;
 
     #[derive(Deserialize)]
@@ -30,7 +31,7 @@ pub(crate) mod parser {
 
     #[derive(Deserialize)]
     pub struct AccountConfigure {
-        pub(crate) extern_ip_uri: Option<String>
+        pub(crate) extern_ip_uris: Option<Vec<String>>
     }
 
     #[derive(Deserialize)]
@@ -41,23 +42,38 @@ pub(crate) mod parser {
 
     #[derive(Deserialize)]
     pub struct OpenWRTConfigure {
-        pub(crate) enabled: bool,
-        pub(crate) route: Option<String>,
-        pub(crate) user: Option<String>,
-        pub(crate) password: Option<String>
+        enabled: bool,
+        route: Option<String>,
+        user: Option<String>,
+        password: Option<String>
     }
 
-    pub fn load<T>(configure_path: T) -> Option<Configure>
-        where T: Into<String>{
+    pub fn get_configure_value<T>(configure_path: T) -> (Option<Vec<String>>,
+                                                         cloudflare_api::api::Configure,
+                                                         Option<openwrt::api::Client>)
+        where T: Into<String> {
         let path_str = configure_path.into();
         let path = Path::new(path_str.as_str());
-        if Path::exists(&path) {
-            let contents = std::fs::read_to_string(path).unwrap();
-            let contents_str = contents.as_str();
-            let configure: Configure = toml::from_str(contents_str).unwrap();
-            return Some(configure)
+        if ! Path::exists(&path) {
+            panic!("Configure file not exist!");
         }
-        None
+        let contents = std::fs::read_to_string(path).unwrap();
+        let contents_str = contents.as_str();
+        let configure: Configure = toml::from_str(contents_str).unwrap();
+        let openwrt_client = if configure.openwrt.enabled {
+            Some(openwrt::api::Client::new(
+                configure.openwrt.user.unwrap(),
+                configure.openwrt.password.unwrap(),
+                configure.openwrt.route.unwrap()
+            ))
+        } else {
+            None
+        };
+        (configure.account.extern_ip_uris,
+         cloudflare_api::api::Configure::new(
+             configure.cloudflare.domain.unwrap(),
+            configure.cloudflare.token.unwrap()
+         ), openwrt_client)
     }
     // TODO: ADD CUSTOM EXTERN IP URI
 }

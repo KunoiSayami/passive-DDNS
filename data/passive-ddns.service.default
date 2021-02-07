@@ -1,17 +1,14 @@
 [Unit]
 Description=Passive DDNS service
+Wants=passive-ddns.timer
 After=network.target
 
 [Service]
-Type=simple
+Type=oneshot
 DynamicUser=true
-Restart=on-failure
-RestartSec=5s
+Environment=RUST_LOG=info
 WorkingDirectory=/opt/passive-DDNS
-ExecStart=/usr/bin/env python3 /opt/passive-DDNS/pddns.py
-ExecReload=/usr/bin/env kill -10 $MAINPID
-ExecStop=/usr/bin/env python3 /opt/passive-DDNS/absddns.py stop $MAINPID
-TimeoutStopSec=5s
+ExecStart=/opt/passive-DDNS/target/release/passive-ddns
 
 [Install]
 WantedBy=multi-user.target

@@ -115,7 +115,7 @@ pub(crate) mod api {
         }
     }
 
-    pub(crate) struct Configure {
+    pub struct Configure {
         zones: Vec<Zone>,
         session: reqwest::blocking::Client
     }
