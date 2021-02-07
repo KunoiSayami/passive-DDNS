@@ -58,11 +58,26 @@ fn get_current_ip(configure: &Option<Vec<String>>,
 
 fn main() {
     env_logger::init();
+    let args: Vec<String> = std::env::args().collect();
+    let from_systemd_argv = "--systemd".to_string();
+    let is_from_systemd =
+        if let Some(_) = args.iter().find(|&x| *x == from_systemd_argv) {
+            true
+        } else {
+            false
+        };
+
     let cfg_values = configparser::parser::get_configure_value("data/config.toml");
     let extern_uri = cfg_values.0;
     let cloudflare = cfg_values.1;
     let openwrt_client = cfg_values.2;
     let current_ip = get_current_ip(&extern_uri, openwrt_client);
-    info!("Current ip: {}", current_ip);
-    cloudflare.update_dns_data(current_ip);
+    if cloudflare.update_dns_data(current_ip.clone()) {
+        let log_string = format!("IP change detected, Changed dns ip to {}", current_ip);
+        if is_from_systemd {
+            println!("{}", log_string)
+        } else {
+            info!("{}", log_string);
+        }
+    }
 }

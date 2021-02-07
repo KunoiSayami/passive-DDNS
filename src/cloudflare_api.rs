@@ -152,7 +152,7 @@ pub(crate) mod api {
             result
         }
 
-        pub fn update_dns_data(&self, new_data: String) {
+        pub fn update_dns_data(&self, new_data: String) -> bool {
             let mut need_updated: Vec<DNSRecord> = Default::default();
             for record in self.fetch_data() {
                 if record.content != new_data {
@@ -161,9 +161,11 @@ pub(crate) mod api {
                     need_updated.push(mut_record);
                 }
             }
+            let rt = !need_updated.is_empty();
             for record in need_updated {
                 record.update_ns_record(&self.session);
             }
+            rt
         }
     }
 }
