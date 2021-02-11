@@ -4,7 +4,7 @@ Design for [CloudFlare](https://cloudflare.com) , It use in has public IP home n
 
 ## Notice
 
-This project is finished RIIR progress, and it supply cloudflare NS only. 
+This project support cloudflare NS only. 
 
 Python version is deprecated after `b690919c83f7fb879c2e34db8cb7e87262d0f565` commit,
 You can still clone python code from `py_latest` branch.
@@ -39,7 +39,6 @@ Don't forget enable them by:
 
 ```shell
 sudo systemctl enable --now passive-ddns.timer
-sudo systemctl enable --now passive-ddns.service
 ```
 
 ## License
