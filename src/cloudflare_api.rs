@@ -95,7 +95,7 @@ pub(crate) mod api {
             Zone{zone_id, domains}
         }
 
-        pub fn request_domain_record(&self, session: &reqwest::blocking::Client) -> Vec<DNSRecord>{
+        pub fn request_domain_record(&self, session: &reqwest::blocking::Client) -> Result<Vec<DNSRecord>, reqwest::Error> {
             let mut records: Vec<DNSRecord> = Default::default();
             //let form: HashMap::<_, _>::from_iter = (("test", "test"), ("test", "test"));
 
@@ -104,14 +104,13 @@ pub(crate) mod api {
                 let query: HashMap<&str, &str> = [("type", "A"), ("name", name)].iter().cloned().collect();
                 let resp = session.get(format!("https://api.cloudflare.com/client/v4/zones/{}/dns_records", &self.zone_id).as_str())
                     .query(&query)
-                    .send()
-                    .unwrap();
+                    .send()?;
                 let resp_json: serde_json::Value = resp.json().unwrap();
                 let dns_record: DNSRecord = serde_json::from_value(resp_json["result"][0].to_owned())
                     .unwrap();
                 records.push(dns_record);
             }
-            records
+            Ok(records)
         }
     }
 
@@ -144,20 +143,20 @@ pub(crate) mod api {
             Configure{zones, session}
         }
 
-        fn fetch_data(&self) -> Vec<DNSRecord>{
+        fn fetch_data(&self) -> Result<Vec<DNSRecord>, reqwest::Error>{
             let mut result: Vec<DNSRecord> = Default::default();
             for zone in &self.zones {
-                result.extend(zone.request_domain_record(&self.session));
+                result.extend(zone.request_domain_record(&self.session)?);
             }
-            result
+            Ok(result)
         }
 
-        pub fn update_dns_data(&self, new_data: String) -> bool {
+        pub fn update_dns_data(&self, new_data: &str) -> Result<bool, reqwest::Error> {
             let mut need_updated: Vec<DNSRecord> = Default::default();
-            for record in self.fetch_data() {
-                if record.content != new_data {
+            for record in self.fetch_data()? {
+                if ! record.content.eq(new_data) {
                     let mut mut_record = record;
-                    mut_record.content = String::from(&new_data);
+                    mut_record.content = String::from(new_data);
                     need_updated.push(mut_record);
                 }
             }
@@ -165,7 +164,7 @@ pub(crate) mod api {
             for record in need_updated {
                 record.update_ns_record(&self.session);
             }
-            rt
+            Ok(rt)
         }
     }
 }

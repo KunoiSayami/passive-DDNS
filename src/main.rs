@@ -21,9 +21,10 @@ mod openwrt;
 mod cloudflare_api;
 mod configparser;
 
-use log::info;
+use log::{info, error};
+use std::time::Duration;
 
-fn get_ip_from_extern_uris(uris: &Vec<String>) -> String {
+fn get_ip_from_extern_uris(uris: &[String]) -> String {
     if uris.is_empty() {
         panic!("Uris should not empty");
     };
@@ -56,28 +57,51 @@ fn get_current_ip(configure: &Option<Vec<String>>,
     }
 }
 
+fn update_process(current_ip: &str, cloudflare: &cloudflare_api::api::Configure,
+                  is_from_systemd: bool) -> bool {
+    match cloudflare.update_dns_data(current_ip) {
+        Ok(result ) => {
+            if result {
+                let log_string = format!("IP change detected, Changed dns ip to {}", current_ip);
+                if is_from_systemd {
+                    println!("{}", log_string)
+                } else {
+                    info!("{}", log_string);
+                }
+            }
+            true
+        }
+        Err(e) => {
+            if is_from_systemd {
+                eprintln!("{:#}", e)
+            }
+            else {
+                error!("{:#}", e)
+            }
+            false
+        }
+    }
+}
+
 fn main() {
     env_logger::init();
     let args: Vec<String> = std::env::args().collect();
     let from_systemd_argv = "--systemd".to_string();
     let is_from_systemd =
-        if let Some(_) = args.iter().find(|&x| *x == from_systemd_argv) {
-            true
-        } else {
-            false
-        };
+        args.iter().any(|x| *x == from_systemd_argv);
 
     let cfg_values = configparser::parser::get_configure_value("data/config.toml");
     let extern_uri = cfg_values.0;
     let cloudflare = cfg_values.1;
     let openwrt_client = cfg_values.2;
     let current_ip = get_current_ip(&extern_uri, openwrt_client);
-    if cloudflare.update_dns_data(current_ip.clone()) {
-        let log_string = format!("IP change detected, Changed dns ip to {}", current_ip);
-        if is_from_systemd {
-            println!("{}", log_string)
-        } else {
-            info!("{}", log_string);
+    if !update_process(&current_ip, &cloudflare, is_from_systemd) {
+        for retry_times in &[5, 10, 60] {
+            std::thread::sleep(Duration::from_secs(*retry_times));
+            if update_process(&current_ip, &cloudflare, is_from_systemd) {
+                std::process::exit(0);
+            }
         }
+        panic!("Error while updating cloudflare ns DNS record");
     }
 }
