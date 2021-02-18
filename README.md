@@ -25,7 +25,7 @@ You should build this project first:
 cargo build --release
 ```
 
-Then, put `data/passive-ddns.timer` and `data/passive-ddns.service` to `/etc/systemd/system` folder.
+Then, put `data/passive-ddns.service` to `/etc/systemd/system` folder.
 
 After exec daemon reload command:
 
@@ -33,12 +33,12 @@ After exec daemon reload command:
 sudo systemctl daemon-reload
 ```
 
-You should can see the status of `passive-ddns.service` and `passive-ddns.timer`.
+You should can see the status of `passive-ddns.service`.
 
 Don't forget enable them by:
 
 ```shell
-sudo systemctl enable --now passive-ddns.timer
+sudo systemctl enable --now passive-ddns.service
 ```
 
 ## License

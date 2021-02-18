@@ -31,7 +31,8 @@ pub(crate) mod parser {
 
     #[derive(Deserialize)]
     pub struct AccountConfigure {
-        pub(crate) extern_ip_uris: Option<Vec<String>>
+        pub(crate) extern_ip_uris: Option<Vec<String>>,
+        duration: Option<i32>
     }
 
     #[derive(Deserialize)]
@@ -50,7 +51,9 @@ pub(crate) mod parser {
 
     pub fn get_configure_value<T>(configure_path: T) -> (Option<Vec<String>>,
                                                          cloudflare_api::api::Configure,
-                                                         Option<openwrt::api::Client>)
+                                                         Option<openwrt::api::Client>,
+                                                         u32
+    )
         where T: Into<String> {
         let path_str = configure_path.into();
         let path = Path::new(path_str.as_str());
@@ -73,7 +76,7 @@ pub(crate) mod parser {
          cloudflare_api::api::Configure::new(
              configure.cloudflare.domain.unwrap(),
             configure.cloudflare.token.unwrap()
-         ), openwrt_client)
+         ), openwrt_client, configure.account.duration.unwrap_or(600))
     }
     // TODO: ADD CUSTOM EXTERN IP URI
 }

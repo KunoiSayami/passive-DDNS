@@ -42,7 +42,7 @@ fn get_ip_from_extern_uris(uris: &[String]) -> String {
 }
 
 fn get_current_ip(configure: &Option<Vec<String>>,
-                  openwrt_client: Option<openwrt::api::Client>) -> String {
+                  openwrt_client: &Option<openwrt::api::Client>) -> String {
     let mut default_uris: Vec<String> = Default::default();
     if configure.is_none() {
         default_uris.push(String::from("https://api-ipv4.ip.sb/ip"));
@@ -73,7 +73,7 @@ fn update_process(current_ip: &str, cloudflare: &cloudflare_api::api::Configure)
     }
 }
 
-fn main() {
+fn main() -> ! {
     if std::env::args().collect::<Vec<String>>().iter().any(|x| x.eq("--systemd")) {
         env_logger::Builder::new()
             .format(|buf, record| {
@@ -88,15 +88,19 @@ fn main() {
     let extern_uri = cfg_values.0;
     let cloudflare = cfg_values.1;
     let openwrt_client = cfg_values.2;
-    let current_ip = get_current_ip(&extern_uri, openwrt_client);
-    if !update_process(&current_ip, &cloudflare) {
-        for retry_times in &[5, 10, 60] {
-            debug!("Sleep {}s for next request", retry_times);
-            std::thread::sleep(Duration::from_secs(*retry_times));
-            if update_process(&current_ip, &cloudflare) {
-                std::process::exit(0);
+    let duration = cfg_values.3;
+    loop {
+        let current_ip = get_current_ip(&extern_uri, &openwrt_client);
+        if !update_process(&current_ip, &cloudflare) {
+            for retry_times in &[5, 10, 60] {
+                debug!("Sleep {}s for next request", retry_times);
+                std::thread::sleep(Duration::from_secs(*retry_times));
+                if update_process(&current_ip, &cloudflare) {
+                    std::process::exit(0);
+                }
             }
+            panic!("Error while updating cloudflare ns DNS record");
         }
-        panic!("Error while updating cloudflare ns DNS record");
+        std::thread::sleep(Duration::from_secs(duration as u64));
     }
 }

@@ -7,9 +7,10 @@ After=network.target
 Type=oneshot
 DynamicUser=true
 Environment=RUST_LOG=info
+Restart=on-failure
+RestartSec=10s
 WorkingDirectory=/opt/passive-DDNS
 ExecStart=/opt/passive-DDNS/target/release/passive-ddns --systemd
 
 [Install]
 WantedBy=multi-user.target
-
