@@ -1,6 +1,6 @@
 [account]
 # extern_ip_uri = ""
-# duration = "600"
+# duration = 600
 
 [cloudflare]
 token = ""

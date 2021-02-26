@@ -17,13 +17,13 @@
  ** You should have received a copy of the GNU Affero General Public License
  ** along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
-mod openwrt;
 mod cloudflare_api;
 mod configparser;
+mod openwrt;
 
-use log::{info, error, debug};
-use std::time::Duration;
+use log::{debug, error, info};
 use std::io::Write;
+use std::time::Duration;
 
 fn get_ip_from_extern_uris(uris: &[String]) -> String {
     if uris.is_empty() {
@@ -35,14 +35,16 @@ fn get_ip_from_extern_uris(uris: &[String]) -> String {
             Ok(resp) => {
                 return String::from(resp.text().unwrap().trim());
             }
-            Err(_e) => continue
+            Err(_e) => continue,
         }
     }
     panic!("Can't get ip from extern uris");
 }
 
-fn get_current_ip(configure: &Option<Vec<String>>,
-                  openwrt_client: &Option<openwrt::api::Client>) -> String {
+fn get_current_ip(
+    configure: &Option<Vec<String>>,
+    openwrt_client: &Option<openwrt::api::Client>,
+) -> String {
     let mut default_uris: Vec<String> = Default::default();
     if configure.is_none() {
         default_uris.push(String::from("https://api-ipv4.ip.sb/ip"));
@@ -50,17 +52,17 @@ fn get_current_ip(configure: &Option<Vec<String>>,
 
     let used_uris = match configure {
         Some(uris) => uris,
-        None => &default_uris
+        None => &default_uris,
     };
     match openwrt_client {
         Some(client) => client.get_current_ip(),
-        None => get_ip_from_extern_uris(used_uris)
+        None => get_ip_from_extern_uris(used_uris),
     }
 }
 
 fn update_process(current_ip: &str, cloudflare: &cloudflare_api::api::Configure) -> bool {
     match cloudflare.update_dns_data(current_ip) {
-        Ok(result ) => {
+        Ok(result) => {
             if result {
                 info!("IP change detected, Changed dns ip to {}", current_ip);
             }
@@ -74,11 +76,13 @@ fn update_process(current_ip: &str, cloudflare: &cloudflare_api::api::Configure)
 }
 
 fn main() -> ! {
-    if std::env::args().collect::<Vec<String>>().iter().any(|x| x.eq("--systemd")) {
+    if std::env::args()
+        .collect::<Vec<String>>()
+        .iter()
+        .any(|x| x.eq("--systemd"))
+    {
         env_logger::Builder::new()
-            .format(|buf, record| {
-                writeln!(buf, "[{}] - {}", record.level(), record.args())
-            })
+            .format(|buf, record| writeln!(buf, "[{}] - {}", record.level(), record.args()))
             .init();
     } else {
         env_logger::init();

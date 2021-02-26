@@ -18,11 +18,11 @@
  ** along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 pub(crate) mod api {
-    use std::collections::HashMap;
-    use std::path::Path;
-    use std::io::Write;
-    use serde::{Serialize, Deserialize};
     use reqwest::header::HeaderMap;
+    use serde::{Deserialize, Serialize};
+    use std::collections::HashMap;
+    use std::io::Write;
+    use std::path::Path;
 
     pub fn get_current_timestamp() -> u128 {
         let start = std::time::SystemTime::now();
@@ -35,13 +35,18 @@ pub(crate) mod api {
     #[derive(Serialize, Deserialize)]
     struct Cookie {
         key: String,
-        value: String
+        value: String,
     }
 
     impl Cookie {
-        fn new<T> (key: T, value: T) -> Cookie
-            where T: Into<String> {
-            Cookie{key: key.into(), value: value.into()}
+        fn new<T>(key: T, value: T) -> Cookie
+        where
+            T: Into<String>,
+        {
+            Cookie {
+                key: key.into(),
+                value: value.into(),
+            }
         }
 
         fn to_entry_string(&self) -> String {
@@ -54,15 +59,16 @@ pub(crate) mod api {
         }
     }
 
-
     #[derive(Serialize, Deserialize)]
     struct Cookies {
-        cookies: Vec<Cookie>
+        cookies: Vec<Cookie>,
     }
 
     impl Cookies {
         fn new() -> Cookies {
-            Cookies{cookies: Default::default()}
+            Cookies {
+                cookies: Default::default(),
+            }
         }
 
         fn from_response(response: &reqwest::blocking::Response) -> Cookies {
@@ -72,7 +78,7 @@ pub(crate) mod api {
                 log::debug!("{:?}", cookie);
                 cookies.push(Cookie::load_from_entry(cookie))
             }
-            Cookies{cookies}
+            Cookies { cookies }
         }
 
         fn to_header_string(&self) -> String {
@@ -100,11 +106,10 @@ pub(crate) mod api {
             let session_path = Path::new("data/.session");
             if Path::exists(session_path) {
                 match std::fs::read_to_string(session_path) {
-                    Ok(content) => serde_json::from_str(content.as_str())
-                        .unwrap_or_else(|_| {
-                            log::warn!("Got unexpected error while parse json, load default cookies");
-                            Cookies::new()
-                        }),
+                    Ok(content) => serde_json::from_str(content.as_str()).unwrap_or_else(|_| {
+                        log::warn!("Got unexpected error while parse json, load default cookies");
+                        Cookies::new()
+                    }),
                     Err(_e) => {
                         log::warn!("Got unexpected error, load default cookies");
                         Cookies::new()
@@ -124,23 +129,25 @@ pub(crate) mod api {
     struct Configure {
         user: String,
         password: String,
-        basic_address: String
+        basic_address: String,
     }
 
     impl Configure {
         fn new<T>(user: T, password: T, basic_address: T) -> Configure
-            where T: Into<String> {
-            Configure{
+        where
+            T: Into<String>,
+        {
+            Configure {
                 user: user.into(),
                 password: password.into(),
-                basic_address: basic_address.into()
+                basic_address: basic_address.into(),
             }
         }
     }
 
     pub struct Client {
         configure: Configure,
-        client: reqwest::blocking::Client
+        client: reqwest::blocking::Client,
     }
 
     impl Client {
@@ -151,32 +158,33 @@ pub(crate) mod api {
                 header_map.append("cookie", cookies.to_header_string().parse().unwrap());
             }
 
-            let request_builder = self.client.get(format!("{}/cgi-bin/luci/",
-                                                          &self.configure.basic_address).as_str())
+            let request_builder = self
+                .client
+                .get(format!("{}/cgi-bin/luci/", &self.configure.basic_address).as_str())
                 .headers(header_map);
 
-            let resp =
-                match request_builder.send() {
-                    Ok(req) => req,
-                    Err(e) => {
-                        panic!("Error with status code: {}", e);
-                    }
+            let resp = match request_builder.send() {
+                Ok(req) => req,
+                Err(e) => {
+                    panic!("Error with status code: {}", e);
                 }
-                    .status();
+            }
+            .status();
             resp.as_u16() == 200
         }
 
         fn do_login(&self, cookies: &Cookies) -> Result<bool, reqwest::blocking::Response> {
             //let cookies = Cookies::load_cookies();
             if self.check_login(&cookies) {
-                return Ok(true)
+                return Ok(true);
             }
             log::debug!("Trying re-login");
             let mut post_data: HashMap<&str, &String> = HashMap::new();
             post_data.insert("luci_username", &self.configure.user);
             post_data.insert("luci_password", &self.configure.password);
-            let resp = self.client.post(format!("{}/cgi-bin/luci", self.configure.basic_address)
-                .as_str())
+            let resp = self
+                .client
+                .post(format!("{}/cgi-bin/luci", self.configure.basic_address).as_str())
                 .form(&post_data)
                 //.header("cookie", cookies.to_entry_string())
                 .send()
@@ -201,9 +209,16 @@ pub(crate) mod api {
                 header_map.append("cookie", cookies.to_header_string().parse().unwrap());
             }
 
-            let resp = self.client.get(format!("{}/cgi-bin/luci/?status=1&_={}",
-                                               &self.configure.basic_address,
-                                               get_current_timestamp()).as_str())
+            let resp = self
+                .client
+                .get(
+                    format!(
+                        "{}/cgi-bin/luci/?status=1&_={}",
+                        &self.configure.basic_address,
+                        get_current_timestamp()
+                    )
+                    .as_str(),
+                )
                 .headers(header_map)
                 .send()
                 .expect("Can't get status json");
@@ -214,14 +229,16 @@ pub(crate) mod api {
         }
 
         pub fn new<T>(user: T, password: T, basic_address: T) -> Client
-            where T: Into<String> {
+        where
+            T: Into<String>,
+        {
             let client = reqwest::blocking::ClientBuilder::new()
                 .cookie_store(true)
                 .redirect(reqwest::redirect::Policy::none())
                 .build()
                 .unwrap();
             let configure = Configure::new(user, password, basic_address);
-            Client{configure, client}
+            Client { configure, client }
         }
     }
 }

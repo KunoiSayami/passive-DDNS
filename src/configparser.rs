@@ -18,27 +18,27 @@
  ** along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 pub(crate) mod parser {
-    use std::path::Path;
     use crate::{cloudflare_api, openwrt};
     use serde_derive::Deserialize;
+    use std::path::Path;
 
     #[derive(Deserialize)]
     pub struct Configure {
         pub(crate) account: AccountConfigure,
         pub(crate) cloudflare: CloudFlareConfigure,
-        pub(crate) openwrt: OpenWRTConfigure
+        pub(crate) openwrt: OpenWRTConfigure,
     }
 
     #[derive(Deserialize)]
     pub struct AccountConfigure {
         pub(crate) extern_ip_uris: Option<Vec<String>>,
-        duration: Option<i32>
+        duration: Option<i32>,
     }
 
     #[derive(Deserialize)]
     pub struct CloudFlareConfigure {
         pub(crate) token: Option<String>,
-        pub(crate) domain: Option<String>
+        pub(crate) domain: Option<String>,
     }
 
     #[derive(Deserialize)]
@@ -46,18 +46,23 @@ pub(crate) mod parser {
         enabled: bool,
         route: Option<String>,
         user: Option<String>,
-        password: Option<String>
+        password: Option<String>,
     }
 
-    pub fn get_configure_value<T>(configure_path: T) -> (Option<Vec<String>>,
-                                                         cloudflare_api::api::Configure,
-                                                         Option<openwrt::api::Client>,
-                                                         u32
+    pub fn get_configure_value<T>(
+        configure_path: T,
+    ) -> (
+        Option<Vec<String>>,
+        cloudflare_api::api::Configure,
+        Option<openwrt::api::Client>,
+        u32,
     )
-        where T: Into<String> {
+    where
+        T: Into<String>,
+    {
         let path_str = configure_path.into();
         let path = Path::new(path_str.as_str());
-        if ! Path::exists(&path) {
+        if !Path::exists(&path) {
             panic!("Configure file not exist!");
         }
         let contents = std::fs::read_to_string(path).unwrap();
@@ -67,16 +72,20 @@ pub(crate) mod parser {
             Some(openwrt::api::Client::new(
                 configure.openwrt.user.unwrap(),
                 configure.openwrt.password.unwrap(),
-                configure.openwrt.route.unwrap()
+                configure.openwrt.route.unwrap(),
             ))
         } else {
             None
         };
-        (configure.account.extern_ip_uris,
-         cloudflare_api::api::Configure::new(
-             configure.cloudflare.domain.unwrap(),
-            configure.cloudflare.token.unwrap()
-         ), openwrt_client, configure.account.duration.unwrap_or(600))
+        (
+            configure.account.extern_ip_uris,
+            cloudflare_api::api::Configure::new(
+                configure.cloudflare.domain.unwrap(),
+                configure.cloudflare.token.unwrap(),
+            ),
+            openwrt_client,
+            configure.account.duration.unwrap_or(600) as u32,
+        )
     }
     // TODO: ADD CUSTOM EXTERN IP URI
 }

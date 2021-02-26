@@ -18,8 +18,8 @@
  ** along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 pub(crate) mod api {
-    use std::collections::HashMap;
     use serde_derive::{Deserialize, Serialize};
+    use std::collections::HashMap;
 
     #[derive(Deserialize)]
     struct DNSRecord {
@@ -38,11 +38,15 @@ pub(crate) mod api {
         }*/
 
         fn update_ns_record(&self, session: &reqwest::blocking::Client) -> bool {
-            let resp = session.put(
-                format!("https://api.cloudflare.com/client/v4/zones/{}/dns_records/{}",
-                        &self.zone_id,
-                        &self.id
-                ).as_str()).json(&PutDNSRecord::from_dns_record(self))
+            let resp = session
+                .put(
+                    format!(
+                        "https://api.cloudflare.com/client/v4/zones/{}/dns_records/{}",
+                        &self.zone_id, &self.id
+                    )
+                    .as_str(),
+                )
+                .json(&PutDNSRecord::from_dns_record(self))
                 .send()
                 .unwrap();
             resp.status().is_success()
@@ -51,7 +55,7 @@ pub(crate) mod api {
 
     #[derive(Serialize)]
     struct PutDNSRecord {
-        #[serde(rename="type")]
+        #[serde(rename = "type")]
         t: String,
         name: String,
         content: String,
@@ -61,25 +65,28 @@ pub(crate) mod api {
 
     impl PutDNSRecord {
         fn from_dns_record(dns_record: &DNSRecord) -> PutDNSRecord {
-            PutDNSRecord{
+            PutDNSRecord {
                 t: String::from('A'),
                 name: String::from(&dns_record.name),
                 content: String::from(&dns_record.content),
                 proxied: dns_record.proxied,
-                ttl: dns_record.ttl
+                ttl: dns_record.ttl,
             }
         }
     }
 
     struct Zone {
         zone_id: String,
-        domains: Vec<String>
+        domains: Vec<String>,
     }
 
     impl Zone {
         pub fn new<T>(original_string: T) -> Zone
-            where T: Into<String> {
-            let basic_re = regex::Regex::new(r"'([a-f\d]+)':\s*\[(('[\w\.]+',\s*)*'[\w\.]+')\]").unwrap();
+        where
+            T: Into<String>,
+        {
+            let basic_re =
+                regex::Regex::new(r"'([a-f\d]+)':\s*\[(('[\w\.]+',\s*)*'[\w\.]+')\]").unwrap();
             let domain_re = regex::Regex::new(r"([\w\.]+)").unwrap();
             let original_string = original_string.into();
             log::debug!("Parse string: {}", &original_string);
@@ -92,22 +99,33 @@ pub(crate) mod api {
                 domains.push(domain.clone());
                 log::debug!("Push {} to {}", domain, zone_id);
             }
-            Zone{zone_id, domains}
+            Zone { zone_id, domains }
         }
 
-        pub fn request_domain_record(&self, session: &reqwest::blocking::Client) -> Result<Vec<DNSRecord>, reqwest::Error> {
+        pub fn request_domain_record(
+            &self,
+            session: &reqwest::blocking::Client,
+        ) -> Result<Vec<DNSRecord>, reqwest::Error> {
             let mut records: Vec<DNSRecord> = Default::default();
             //let form: HashMap::<_, _>::from_iter = (("test", "test"), ("test", "test"));
 
             for domain in &self.domains {
                 let name = domain.as_str();
-                let query: HashMap<&str, &str> = [("type", "A"), ("name", name)].iter().cloned().collect();
-                let resp = session.get(format!("https://api.cloudflare.com/client/v4/zones/{}/dns_records", &self.zone_id).as_str())
+                let query: HashMap<&str, &str> =
+                    [("type", "A"), ("name", name)].iter().cloned().collect();
+                let resp = session
+                    .get(
+                        format!(
+                            "https://api.cloudflare.com/client/v4/zones/{}/dns_records",
+                            &self.zone_id
+                        )
+                        .as_str(),
+                    )
                     .query(&query)
                     .send()?;
                 let resp_json: serde_json::Value = resp.json().unwrap();
-                let dns_record: DNSRecord = serde_json::from_value(resp_json["result"][0].to_owned())
-                    .unwrap();
+                let dns_record: DNSRecord =
+                    serde_json::from_value(resp_json["result"][0].to_owned()).unwrap();
                 records.push(dns_record);
             }
             Ok(records)
@@ -116,12 +134,14 @@ pub(crate) mod api {
 
     pub struct Configure {
         zones: Vec<Zone>,
-        session: reqwest::blocking::Client
+        session: reqwest::blocking::Client,
     }
 
     impl Configure {
         pub fn new<T>(domains: T, api_token: T) -> Configure
-            where T: Into<String> {
+        where
+            T: Into<String>,
+        {
             let re = regex::Regex::new(r"('[a-f\d]+':\s*\[('[\w\.]+',\s*)*'[\w\.]+'\])").unwrap();
             let original_domain_string = domains.into();
             let mut zones: Vec<Zone> = Default::default();
@@ -131,8 +151,14 @@ pub(crate) mod api {
             }
             let api_token = api_token.into();
             let mut header_map = reqwest::header::HeaderMap::new();
-            header_map.insert("Authorization", format!("Bearer {}", api_token).parse().unwrap());
-            header_map.insert("Content-Type", String::from("application/json").parse().unwrap());
+            header_map.insert(
+                "Authorization",
+                format!("Bearer {}", api_token).parse().unwrap(),
+            );
+            header_map.insert(
+                "Content-Type",
+                String::from("application/json").parse().unwrap(),
+            );
             header_map.insert("Connection", String::from("close").parse().unwrap());
 
             let session = reqwest::blocking::Client::builder()
@@ -140,10 +166,10 @@ pub(crate) mod api {
                 .build()
                 .unwrap();
 
-            Configure{zones, session}
+            Configure { zones, session }
         }
 
-        fn fetch_data(&self) -> Result<Vec<DNSRecord>, reqwest::Error>{
+        fn fetch_data(&self) -> Result<Vec<DNSRecord>, reqwest::Error> {
             let mut result: Vec<DNSRecord> = Default::default();
             for zone in &self.zones {
                 result.extend(zone.request_domain_record(&self.session)?);
@@ -154,7 +180,7 @@ pub(crate) mod api {
         pub fn update_dns_data(&self, new_data: &str) -> Result<bool, reqwest::Error> {
             let mut need_updated: Vec<DNSRecord> = Default::default();
             for record in self.fetch_data()? {
-                if ! record.content.eq(new_data) {
+                if !record.content.eq(new_data) {
                     let mut mut_record = record;
                     mut_record.content = String::from(new_data);
                     need_updated.push(mut_record);
