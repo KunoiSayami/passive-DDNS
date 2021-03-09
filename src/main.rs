@@ -81,7 +81,7 @@ fn main() -> ! {
         .iter()
         .any(|x| x.eq("--systemd"))
     {
-        env_logger::Builder::new()
+        env_logger::Builder::from_default_env()
             .format(|buf, record| writeln!(buf, "[{}] - {}", record.level(), record.args()))
             .init();
     } else {

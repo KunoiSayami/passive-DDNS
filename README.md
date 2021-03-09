@@ -6,8 +6,7 @@ Design for [CloudFlare](https://cloudflare.com) , It use in has public IP home n
 
 This project support cloudflare NS only. 
 
-Python version is deprecated after `b690919c83f7fb879c2e34db8cb7e87262d0f565` commit,
-You can still clone python code from `py_latest` branch.
+Python version is deprecated after `b690919c83f7fb879c2e34db8cb7e87262d0f565` commit.
 
 ## Usage
 

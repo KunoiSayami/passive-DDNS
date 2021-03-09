@@ -1,12 +1,11 @@
 [Unit]
 Description=Passive DDNS service
-Wants=passive-ddns.timer
 After=network.target
 
 [Service]
-Type=oneshot
+Type=simple
 DynamicUser=true
-Environment=RUST_LOG=info
+Environment="RUST_LOG=info"
 Restart=on-failure
 RestartSec=10s
 WorkingDirectory=/opt/passive-DDNS
