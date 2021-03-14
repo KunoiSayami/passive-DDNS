@@ -96,14 +96,18 @@ fn main() -> ! {
     loop {
         let current_ip = get_current_ip(&extern_uri, &openwrt_client);
         if !update_process(&current_ip, &cloudflare) {
+            let mut v = true;
             for retry_times in &[5, 10, 60] {
                 debug!("Sleep {}s for next request", retry_times);
                 std::thread::sleep(Duration::from_secs(*retry_times));
                 if update_process(&current_ip, &cloudflare) {
-                    std::process::exit(0);
+                    v = false;
+                    break
                 }
             }
-            panic!("Error while updating cloudflare ns DNS record");
+            if v {
+                panic!("Error while updating cloudflare ns DNS record");
+            }
         }
         std::thread::sleep(Duration::from_secs(duration as u64));
     }
