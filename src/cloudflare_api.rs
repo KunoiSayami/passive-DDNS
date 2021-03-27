@@ -17,9 +17,12 @@
  ** You should have received a copy of the GNU Affero General Public License
  ** along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
+const DEFAULT_TIMEOUT: u64 = 10;
 pub(crate) mod api {
     use serde_derive::{Deserialize, Serialize};
     use std::collections::HashMap;
+    use std::time::Duration;
+    use super::DEFAULT_TIMEOUT;
 
     #[derive(Deserialize)]
     struct DNSRecord {
@@ -81,10 +84,7 @@ pub(crate) mod api {
     }
 
     impl Zone {
-        pub fn new<T>(original_string: T) -> Zone
-        where
-            T: Into<String>,
-        {
+        pub fn new<T: Into<String>>(original_string: T) -> Zone {
             let basic_re =
                 regex::Regex::new(r"'([a-f\d]+)':\s*\[(('[\w\.]+',\s*)*'[\w\.]+')\]").unwrap();
             let domain_re = regex::Regex::new(r"([\w\.]+)").unwrap();
@@ -138,10 +138,7 @@ pub(crate) mod api {
     }
 
     impl Configure {
-        pub fn new<T>(domains: T, api_token: T) -> Configure
-        where
-            T: Into<String>,
-        {
+        pub fn new<T: Into<String>>(domains: T, api_token: T) -> Configure {
             let re = regex::Regex::new(r"('[a-f\d]+':\s*\[('[\w\.]+',\s*)*'[\w\.]+'\])").unwrap();
             let original_domain_string = domains.into();
             let mut zones: Vec<Zone> = Default::default();
@@ -163,6 +160,8 @@ pub(crate) mod api {
 
             let session = reqwest::blocking::Client::builder()
                 .default_headers(header_map)
+                .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
+                .connect_timeout(Duration::from_secs(DEFAULT_TIMEOUT))
                 .build()
                 .unwrap();
 
