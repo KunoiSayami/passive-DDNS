@@ -25,6 +25,8 @@ use log::{debug, error, info};
 use std::io::Write;
 use std::time::Duration;
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 fn get_ip_from_extern_uris(uris: &[String]) -> String {
     if uris.is_empty() {
         panic!("Uris should not empty");
@@ -75,10 +77,13 @@ fn update_process(current_ip: &str, cloudflare: &cloudflare_api::api::Configure)
     }
 }
 
-fn main() -> ! {
-    if std::env::args()
-        .collect::<Vec<String>>()
-        .iter()
+fn main() {
+    if std::env::args().into_iter().any(|x| x.eq("--version") || x.eq("-V")) {
+        println!("passive-DDNS {}", VERSION);
+        return
+    }
+
+    if std::env::args().into_iter()
         .any(|x| x.eq("--systemd"))
     {
         env_logger::Builder::from_default_env()
@@ -87,6 +92,7 @@ fn main() -> ! {
     } else {
         env_logger::init();
     }
+
 
     let cfg_values = configparser::parser::get_configure_value("data/config.toml");
     let extern_uri = cfg_values.0;
