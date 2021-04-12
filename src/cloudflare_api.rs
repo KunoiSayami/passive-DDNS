@@ -19,10 +19,10 @@
  */
 const DEFAULT_TIMEOUT: u64 = 10;
 pub(crate) mod api {
+    use super::DEFAULT_TIMEOUT;
     use serde_derive::{Deserialize, Serialize};
     use std::collections::HashMap;
     use std::time::Duration;
-    use super::DEFAULT_TIMEOUT;
 
     #[derive(Deserialize)]
     struct DNSRecord {

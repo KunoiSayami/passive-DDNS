@@ -78,21 +78,21 @@ fn update_process(current_ip: &str, cloudflare: &cloudflare_api::api::Configure)
 }
 
 fn main() {
-    if std::env::args().into_iter().any(|x| x.eq("--version") || x.eq("-V")) {
+    if std::env::args()
+        .into_iter()
+        .any(|x| x.eq("--version") || x.eq("-V"))
+    {
         println!("passive-DDNS {}", VERSION);
-        return
+        return;
     }
 
-    if std::env::args().into_iter()
-        .any(|x| x.eq("--systemd"))
-    {
+    if std::env::args().into_iter().any(|x| x.eq("--systemd")) {
         env_logger::Builder::from_default_env()
             .format(|buf, record| writeln!(buf, "[{}] - {}", record.level(), record.args()))
             .init();
     } else {
         env_logger::init();
     }
-
 
     let cfg_values = configparser::parser::get_configure_value("data/config.toml");
     let extern_uri = cfg_values.0;
@@ -108,7 +108,7 @@ fn main() {
                 std::thread::sleep(Duration::from_secs(*retry_times));
                 if update_process(&current_ip, &cloudflare) {
                     v = false;
-                    break
+                    break;
                 }
             }
             if v {
