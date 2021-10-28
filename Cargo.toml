@@ -1,6 +1,6 @@
 [package]
 name = "passive-ddns"
-version = "3.1.6"
+version = "4.0.0-alpha"
 authors = ["KunoiSayami <46131041+KunoiSayami@users.noreply.github.com>"]
 edition = "2018"
 

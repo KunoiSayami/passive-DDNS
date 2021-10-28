@@ -18,6 +18,7 @@
  ** along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 pub(crate) mod api {
+    use crate::configparser::IPSource;
     use reqwest::header::HeaderMap;
     use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
@@ -175,7 +176,7 @@ pub(crate) mod api {
 
         fn do_login(&self, cookies: &Cookies) -> Result<bool, reqwest::blocking::Response> {
             //let cookies = Cookies::load_cookies();
-            if self.check_login(&cookies) {
+            if self.check_login(cookies) {
                 return Ok(true);
             }
             log::debug!("Trying re-login");
@@ -200,8 +201,24 @@ pub(crate) mod api {
             }
         }
 
-        pub fn get_current_ip(&self) -> String {
+        pub fn new<T>(user: T, password: T, basic_address: T) -> Client
+        where
+            T: Into<String>,
+        {
+            let client = reqwest::blocking::ClientBuilder::new()
+                .cookie_store(true)
+                .redirect(reqwest::redirect::Policy::none())
+                .build()
+                .unwrap();
+            let configure = Configure::new(user, password, basic_address);
+            Client { configure, client }
+        }
+    }
+
+    impl IPSource for Client {
+        fn get_current_ip(&self) -> Result<String, reqwest::Error> {
             let cookies = Cookies::load_cookies();
+            // TODO: Fix this `?'
             let need_load_cookie = self.do_login(&cookies).unwrap();
 
             let mut header_map = HeaderMap::new();
@@ -220,25 +237,37 @@ pub(crate) mod api {
                     .as_str(),
                 )
                 .headers(header_map)
-                .send()
-                .expect("Can't get status json");
+                .send()?;
 
             let content: serde_json::Value = resp.json().unwrap();
 
-            String::from(content["wan"]["ipaddr"].as_str().unwrap())
+            Ok(String::from(content["wan"]["ipaddr"].as_str().unwrap()))
+        }
+    }
+
+    #[derive(Deserialize)]
+    pub struct OpenWRTConfigure {
+        enabled: bool,
+        route: Option<String>,
+        user: Option<String>,
+        password: Option<String>,
+    }
+
+    impl OpenWRTConfigure {
+        pub fn get_status(&self) -> bool {
+            self.enabled
         }
 
-        pub fn new<T>(user: T, password: T, basic_address: T) -> Client
-        where
-            T: Into<String>,
-        {
-            let client = reqwest::blocking::ClientBuilder::new()
-                .cookie_store(true)
-                .redirect(reqwest::redirect::Policy::none())
-                .build()
-                .unwrap();
-            let configure = Configure::new(user, password, basic_address);
-            Client { configure, client }
+        pub fn get_route(&self) -> &Option<String> {
+            &self.route
+        }
+
+        pub fn get_user(&self) -> &Option<String> {
+            &self.user
+        }
+
+        pub fn get_password(&self) -> &Option<String> {
+            &self.password
         }
     }
 }

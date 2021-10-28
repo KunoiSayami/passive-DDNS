@@ -20,6 +20,7 @@
 const DEFAULT_TIMEOUT: u64 = 10;
 pub(crate) mod api {
     use super::DEFAULT_TIMEOUT;
+    use crate::configparser::NameServer;
     use serde_derive::{Deserialize, Serialize};
     use std::collections::HashMap;
     use std::time::Duration;
@@ -142,7 +143,7 @@ pub(crate) mod api {
             let re = regex::Regex::new(r"('[a-f\d]+':\s*\[('[\w\.]+',\s*)*'[\w\.]+'\])").unwrap();
             let original_domain_string = domains.into();
             let mut zones: Vec<Zone> = Default::default();
-            for cap in re.captures_iter(&original_domain_string.as_str()) {
+            for cap in re.captures_iter(original_domain_string.as_str()) {
                 let domain_configure = String::from(&cap[1]);
                 zones.push(Zone::new(domain_configure));
             }
@@ -175,13 +176,35 @@ pub(crate) mod api {
             }
             Ok(result)
         }
+    }
 
-        pub fn update_dns_data(&self, new_data: &str) -> Result<bool, reqwest::Error> {
+    #[derive(Deserialize)]
+    pub struct CloudFlareConfigure {
+        enabled: Option<bool>,
+        token: Option<String>,
+        domain: Option<String>,
+    }
+
+    impl CloudFlareConfigure {
+        /// Default is true
+        pub fn get_enabled(&self) -> bool {
+            self.enabled.unwrap_or(true)
+        }
+        pub fn get_token(&self) -> &Option<String> {
+            &self.token
+        }
+        pub fn get_domain(&self) -> &Option<String> {
+            &self.domain
+        }
+    }
+
+    impl NameServer for Configure {
+        fn update_dns_result(&self, new_record: &str) -> Result<bool, reqwest::Error> {
             let mut need_updated: Vec<DNSRecord> = Default::default();
             for record in self.fetch_data()? {
-                if !record.content.eq(new_data) {
+                if !record.content.eq(new_record) {
                     let mut mut_record = record;
-                    mut_record.content = String::from(new_data);
+                    mut_record.content = String::from(new_record);
                     need_updated.push(mut_record);
                 }
             }

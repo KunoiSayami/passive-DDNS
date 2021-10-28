@@ -19,51 +19,18 @@
  */
 mod cloudflare_api;
 mod configparser;
+mod custom_target;
 mod openwrt;
 
-use log::{debug, error, info};
+use crate::configparser::NameServer;
+use log::{error, info, warn};
 use std::io::Write;
 use std::time::Duration;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-fn get_ip_from_extern_uris(uris: &[String]) -> String {
-    if uris.is_empty() {
-        panic!("Uris should not empty");
-    };
-    for uri in uris {
-        let result = reqwest::blocking::get(uri);
-        match result {
-            Ok(resp) => {
-                return String::from(resp.text().unwrap().trim());
-            }
-            Err(_e) => continue,
-        }
-    }
-    panic!("Can't get ip from extern uris");
-}
-
-fn get_current_ip(
-    configure: &Option<Vec<String>>,
-    openwrt_client: &Option<openwrt::api::Client>,
-) -> String {
-    let mut default_uris: Vec<String> = Default::default();
-    if configure.is_none() {
-        default_uris.push(String::from("https://api-ipv4.ip.sb/ip"));
-    }
-
-    let used_uris = match configure {
-        Some(uris) => uris,
-        None => &default_uris,
-    };
-    match openwrt_client {
-        Some(client) => client.get_current_ip(),
-        None => get_ip_from_extern_uris(used_uris),
-    }
-}
-
-fn update_process(current_ip: &str, cloudflare: &cloudflare_api::api::Configure) -> bool {
-    match cloudflare.update_dns_data(current_ip) {
+fn update_process(current_ip: &str, name_server: &dyn NameServer) -> bool {
+    match name_server.update_dns_result(current_ip) {
         Ok(result) => {
             if result {
                 info!("IP change detected, Changed dns ip to {}", current_ip);
@@ -95,24 +62,21 @@ fn main() {
     }
 
     let cfg_values = configparser::parser::get_configure_value("data/config.toml");
-    let extern_uri = cfg_values.0;
-    let cloudflare = cfg_values.1;
-    let openwrt_client = cfg_values.2;
-    let duration = cfg_values.3;
+    let (name_server, ip_source, duration) = cfg_values;
     loop {
-        let current_ip = get_current_ip(&extern_uri, &openwrt_client);
-        if !update_process(&current_ip, &cloudflare) {
+        let current_ip = ip_source.get_current_ip().unwrap();
+        if !update_process(&current_ip, &name_server) {
             let mut v = true;
             for retry_times in &[5, 10, 60] {
-                debug!("Sleep {}s for next request", retry_times);
+                warn!("Sleep {}s for next request", retry_times);
                 std::thread::sleep(Duration::from_secs(*retry_times));
-                if update_process(&current_ip, &cloudflare) {
+                if update_process(&current_ip, &name_server) {
                     v = false;
                     break;
                 }
             }
             if v {
-                panic!("Error while updating cloudflare ns DNS record");
+                panic!("Error while updating Nameserver DNS record");
             }
         }
         std::thread::sleep(Duration::from_secs(duration as u64));
