@@ -21,6 +21,8 @@ mod cloudflare_api;
 mod configparser;
 mod custom_target;
 mod openwrt;
+#[cfg(test)]
+mod test;
 
 use crate::configparser::NameServer;
 use log::{error, info, warn};

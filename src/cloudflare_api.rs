@@ -26,7 +26,7 @@ pub(crate) mod api {
     use std::time::Duration;
 
     #[derive(Deserialize)]
-    struct DNSRecord {
+    pub(crate) struct DNSRecord {
         id: String,
         zone_id: String,
         name: String,
@@ -79,9 +79,19 @@ pub(crate) mod api {
         }
     }
 
-    struct Zone {
+    pub(crate) struct Zone {
         zone_id: String,
         domains: Vec<String>,
+    }
+
+    #[cfg(test)]
+    impl Zone {
+        pub(crate) fn zone_id(&self) -> &str {
+            &self.zone_id
+        }
+        pub(crate) fn domains(&self) -> &Vec<String> {
+            &self.domains
+        }
     }
 
     impl Zone {
@@ -103,7 +113,7 @@ pub(crate) mod api {
             Zone { zone_id, domains }
         }
 
-        pub fn request_domain_record(
+        pub(crate) fn request_domain_record(
             &self,
             session: &reqwest::blocking::Client,
         ) -> Result<Vec<DNSRecord>, reqwest::Error> {
@@ -175,6 +185,11 @@ pub(crate) mod api {
                 result.extend(zone.request_domain_record(&self.session)?);
             }
             Ok(result)
+        }
+
+        #[cfg(test)]
+        pub(crate) fn zones(&self) -> &Vec<Zone> {
+            &self.zones
         }
     }
 
