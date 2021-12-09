@@ -4,7 +4,7 @@ Design for [CloudFlare](https://cloudflare.com) , It use in has public IP home n
 
 ## Notice
 
-This project support cloudflare NS only. 
+This project only support cloudflare NS and custom upstream (update your IP by post value).
 
 Python version is deprecated after `b690919c83f7fb879c2e34db8cb7e87262d0f565` commit.
 
@@ -42,7 +42,7 @@ sudo systemctl enable --now passive-ddns.service
 
 ## License
 
-[![](https://www.gnu.org/graphics/agplv3-155x51.png)](https://www.gnu.org/licenses/agpl-3.0.txt)
+[![](https://www.gnu.org/graphics/agplv3-155x51.png "AGPL v3 logo")](https://www.gnu.org/licenses/agpl-3.0.txt)
 
 Copyright (C) 2018-2021 KunoiSayami
 

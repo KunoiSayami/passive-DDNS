@@ -27,34 +27,43 @@ pub(crate) mod api {
         #[allow(dead_code)]
         enabled: Option<bool>,
         upstream_url: String,
+        token: Option<String>,
     }
 
     impl CustomUpstreamConfigure {
         pub fn get_upstream(&self) -> &String {
             &self.upstream_url
         }
+
+        fn get_token(&self) -> &Option<String> {
+            &self.token
+        }
+
     }
 
     pub struct CustomUpstream {
         upstream_url: String,
+        token: String,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
-    struct PostBody {
+    pub struct PostBody {
         data: String,
+        token: String,
     }
 
     impl PostBody {
-        pub fn new(s: &str) -> Self {
+        pub fn new(s: &str, token: &str) -> Self {
             Self {
                 data: s.to_string(),
+                token: token.to_string(),
             }
         }
     }
 
     impl From<&str> for PostBody {
         fn from(s: &str) -> Self {
-            Self::new(s)
+            Self::new(s, "")
         }
     }
 
@@ -74,7 +83,12 @@ pub(crate) mod api {
             let upstream = config.get_custom_upstream();
             upstream.as_ref().map(|source| Self {
                 upstream_url: source.get_upstream().clone(),
+                token: source.get_token().clone().unwrap_or_default()
             })
+        }
+
+        pub fn to_post_body(&self, s: &str) -> PostBody {
+            PostBody::new(s, self.token.as_str())
         }
     }
 
@@ -83,7 +97,7 @@ pub(crate) mod api {
             let response: PostResponse = reqwest::blocking::ClientBuilder::new()
                 .build()?
                 .post(&self.upstream_url)
-                .json(&PostBody::from(new_record))
+                .json(&self.to_post_body(new_record))
                 .send()?
                 .json()?;
             Ok(response.get_status() == 200)

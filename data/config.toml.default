@@ -3,6 +3,7 @@
 # duration = 600
 
 [cloudflare]
+# enabled = true
 token = ""
 # For example, you want to set a.example.com and b.example.com and c.example.moe
 # you should set like this
@@ -16,3 +17,8 @@ enabled = false
 route = ""
 user = ""
 password = ""
+
+[custom_upstream]
+enabled = false
+upstream_url = ""
+token = ""
