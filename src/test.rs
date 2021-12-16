@@ -20,8 +20,7 @@ mod test {
 
     #[test]
     fn test_configure() {
-        let content = r#"
-        [account]
+        let content = r#"[account]
 # extern_ip_uri = ""
 # duration = 600
 
