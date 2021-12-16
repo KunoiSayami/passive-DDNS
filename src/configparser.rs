@@ -116,7 +116,7 @@ pub(crate) mod parser {
         let cf_configure = configure.get_cloudflare_configure();
         let ns: Box<dyn NameServer> = if cf_configure.get_enabled() {
             Box::new(cloudflare_api::api::Configure::new(
-                cf_configure.get_domain().borrow().as_ref().unwrap(),
+                cf_configure.get_domain().clone().unwrap(),
                 cf_configure.get_token().borrow().as_ref().unwrap(),
             ))
         } else {

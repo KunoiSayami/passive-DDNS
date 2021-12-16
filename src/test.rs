@@ -32,7 +32,14 @@ token = "114514"
 # example.com zone id is `ca3d180a0c66ac16da45fad9f7674292'
 # example.moe zone id is `2d9437302c842804ab97f94e657c98af'
 # domain = {'ca3d180a0c66ac16da45fad9f7674292': ['a.example.com', 'b.example.com'], '2d9437302c842804ab97f94e657c98af': ['c.example.moe']}
-domain = "ca3d180a0c66ac16da45fad9f7674292': ['a.example.com', 'b.example.com'], '2d9437302c842804ab97f94e657c98af': ['c.example.moe']"
+
+[[cloudflare.domain]]
+zone_id = "ca3d180a0c66ac16da45fad9f7674292"
+domains = ["a.example.com", "b.example.com"]
+
+[[cloudflare.domain]]
+zone_id = "2d9437302c842804ab97f94e657c98af"
+domains = ["c.example.moe"]
 
 [openwrt]
 enabled = false

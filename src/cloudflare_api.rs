@@ -79,7 +79,8 @@ pub(crate) mod api {
         }
     }
 
-    pub(crate) struct Zone {
+    #[derive(Deserialize, Clone, Debug)]
+    pub struct Zone {
         zone_id: String,
         domains: Vec<String>,
     }
@@ -95,23 +96,6 @@ pub(crate) mod api {
     }
 
     impl Zone {
-        pub fn new<T: Into<String>>(original_string: T) -> Zone {
-            let basic_re =
-                regex::Regex::new(r"'([a-f\d]+)':\s*\[(('[\w\.]+',\s*)*'[\w\.]+')\]").unwrap();
-            let domain_re = regex::Regex::new(r"([\w\.]+)").unwrap();
-            let original_string = original_string.into();
-            log::debug!("Parse string: {}", &original_string);
-            let cap = basic_re.captures(original_string.as_str()).unwrap();
-            let zone_id = String::from(&cap[1]);
-            log::debug!("Processing zone: {}", zone_id);
-            let mut domains: Vec<String> = Default::default();
-            for cap in domain_re.captures_iter(&cap[2]) {
-                let domain = String::from(&cap[1]);
-                domains.push(domain.clone());
-                log::debug!("Push {} to {}", domain, zone_id);
-            }
-            Zone { zone_id, domains }
-        }
 
         pub(crate) fn request_domain_record(
             &self,
@@ -149,14 +133,7 @@ pub(crate) mod api {
     }
 
     impl Configure {
-        pub fn new<T: Into<String>>(domains: T, api_token: T) -> Configure {
-            let re = regex::Regex::new(r"('[a-f\d]+':\s*\[('[\w\.]+',\s*)*'[\w\.]+'\])").unwrap();
-            let original_domain_string = domains.into();
-            let mut zones: Vec<Zone> = Default::default();
-            for cap in re.captures_iter(original_domain_string.as_str()) {
-                let domain_configure = String::from(&cap[1]);
-                zones.push(Zone::new(domain_configure));
-            }
+        pub fn new<T: Into<String>>(domains: Vec<Zone>, api_token: T) -> Configure {
             let api_token = api_token.into();
             let mut header_map = reqwest::header::HeaderMap::new();
             header_map.insert(
@@ -176,7 +153,7 @@ pub(crate) mod api {
                 .build()
                 .unwrap();
 
-            Configure { zones, session }
+            Configure { zones: domains.clone(), session }
         }
 
         fn fetch_data(&self) -> Result<Vec<DNSRecord>, reqwest::Error> {
@@ -197,7 +174,7 @@ pub(crate) mod api {
     pub struct CloudFlareConfigure {
         enabled: Option<bool>,
         token: Option<String>,
-        domain: Option<String>,
+        domain: Option<Vec<Zone>>,
     }
 
     impl CloudFlareConfigure {
@@ -208,7 +185,7 @@ pub(crate) mod api {
         pub fn get_token(&self) -> &Option<String> {
             &self.token
         }
-        pub fn get_domain(&self) -> &Option<String> {
+        pub fn get_domain(&self) -> &Option<Vec<Zone>> {
             &self.domain
         }
     }
@@ -230,4 +207,5 @@ pub(crate) mod api {
             Ok(rt)
         }
     }
+
 }
