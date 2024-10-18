@@ -76,7 +76,7 @@ pub(crate) mod api {
             let mut cookies: Vec<Cookie> = Default::default();
             log::debug!("Cookie length: {:?}", response.headers());
             for cookie in response.cookies() {
-                log::debug!("{:?}", cookie);
+                log::debug!("{cookie:?}");
                 cookies.push(Cookie::load_from_entry(cookie))
             }
             Cookies { cookies }

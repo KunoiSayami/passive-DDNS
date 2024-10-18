@@ -25,7 +25,6 @@ pub(crate) mod parser {
     use crate::{cloudflare_api, openwrt};
     use log::info;
     use serde_derive::Deserialize;
-    use std::borrow::Borrow;
     use std::path::Path;
 
     #[derive(Deserialize)]
@@ -88,24 +87,9 @@ pub(crate) mod parser {
         let openwrt_config = configure.get_openwrt_configure();
         let ip_source_client: Box<dyn IPSource> = if openwrt_config.get_status() {
             Box::new(openwrt::api::Client::new(
-                openwrt_config
-                    .get_user()
-                    .borrow()
-                    .as_ref()
-                    .unwrap()
-                    .to_string(),
-                openwrt_config
-                    .get_password()
-                    .borrow()
-                    .as_ref()
-                    .unwrap()
-                    .to_string(),
-                openwrt_config
-                    .get_route()
-                    .borrow()
-                    .as_ref()
-                    .unwrap()
-                    .to_string(),
+                openwrt_config.get_user().as_ref().cloned().unwrap(),
+                openwrt_config.get_password().as_ref().cloned().unwrap(),
+                openwrt_config.get_route().as_ref().cloned().unwrap(),
             ))
         } else {
             Box::new(DefaultIPSource::new(
@@ -117,7 +101,7 @@ pub(crate) mod parser {
         let ns: Box<dyn NameServer> = if cf_configure.get_enabled() {
             Box::new(cloudflare_api::api::Configure::new(
                 cf_configure.get_domain().clone().unwrap(),
-                cf_configure.get_token().borrow().as_ref().unwrap(),
+                cf_configure.get_token().as_ref().unwrap(),
             ))
         } else {
             info!("Use custom upstream instead of cloudflare");
