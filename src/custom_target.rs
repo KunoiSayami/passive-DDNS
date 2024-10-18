@@ -91,14 +91,17 @@ pub(crate) mod api {
         }
     }
 
+    #[async_trait::async_trait]
     impl NameServer for CustomUpstream {
-        fn update_dns_result(&self, new_record: &str) -> Result<bool, reqwest::Error> {
-            let response: PostResponse = reqwest::blocking::ClientBuilder::new()
+        async fn update_dns_result(&self, new_record: &str) -> Result<bool, reqwest::Error> {
+            let response: PostResponse = reqwest::ClientBuilder::new()
                 .build()?
                 .post(&self.upstream_url)
                 .json(&self.to_post_body(new_record))
-                .send()?
-                .json()?;
+                .send()
+                .await?
+                .json()
+                .await?;
             Ok(response.get_status() == 200)
         }
     }

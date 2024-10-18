@@ -23,8 +23,11 @@ pub(crate) mod parser {
     use crate::custom_target::api::{CustomUpstream, CustomUpstreamConfigure};
     use crate::openwrt::api::OpenWRTConfigure;
     use crate::{cloudflare_api, openwrt};
-    use log::info;
-    use serde_derive::Deserialize;
+    use anyhow::anyhow;
+    use log::{error, info};
+    use serde::Deserialize;
+    use tap::TapFallible;
+
     use std::path::Path;
 
     #[derive(Deserialize)]
@@ -69,20 +72,12 @@ pub(crate) mod parser {
         }
     }
 
-    pub fn get_configure_value<T>(
-        configure_path: T,
-    ) -> (Box<dyn NameServer>, Box<dyn IPSource>, u32)
-    where
-        T: Into<String>,
-    {
-        let path_str = configure_path.into();
-        let path = Path::new(path_str.as_str());
-        if !Path::exists(path) {
-            panic!("Configure file not exist!");
-        }
-        let contents = std::fs::read_to_string(path).unwrap();
-        let contents_str = contents.as_str();
-        let configure: Configure = toml::from_str(contents_str).unwrap();
+    pub async fn get_configure_value<P: AsRef<Path> + std::fmt::Debug>(
+        configure_path: P,
+    ) -> anyhow::Result<(Box<dyn NameServer>, Box<dyn IPSource>, u32)> {
+        let contents = tokio::fs::read_to_string(configure_path).await?;
+        let configure: Configure =
+            toml::from_str(&contents).tap_err(|e| error!("Read configure file error: {e:?}"))?;
 
         let openwrt_config = configure.get_openwrt_configure();
         let ip_source_client: Box<dyn IPSource> = if openwrt_config.get_status() {
@@ -108,7 +103,7 @@ pub(crate) mod parser {
             Box::new(CustomUpstream::option_new(&configure).unwrap())
         };
 
-        (ns, ip_source_client, configure.get_account().get_duration())
+        Ok((ns, ip_source_client, configure.get_account().get_duration()))
     }
     // TODO: ADD CUSTOM EXTERN IP URI
 
@@ -118,32 +113,31 @@ pub(crate) mod parser {
 
     impl DefaultIPSource {
         fn new(extern_uris: &Option<Vec<String>>) -> DefaultIPSource {
-            let mut default_uris: Vec<String> = Default::default();
-            if extern_uris.is_none() {
-                default_uris.push(String::from("https://api-ipv4.ip.sb/ip"));
-            }
-
-            let used_uris = match extern_uris {
-                Some(uris) => uris,
-                None => &default_uris,
-            };
             Self {
-                uris: used_uris.clone(),
+                uris: match extern_uris {
+                    Some(uris) => uris.clone(),
+                    None => vec!["https://api-ipv4.ip.sb/ip".into()],
+                },
             }
         }
 
-        fn fetch_ip_from_extern_uris(uris: &[String]) -> Result<String, reqwest::Error> {
+        async fn fetch_ip_from_extern_uris(uris: &[String]) -> anyhow::Result<String> {
             assert!(!uris.is_empty(), "Uris should not empty");
 
             for i in 0..uris.len() {
-                let result = reqwest::blocking::get(&uris[i]);
+                let result = reqwest::get(&uris[i]).await;
                 match result {
                     Ok(resp) => {
-                        return Ok(String::from(resp.text().unwrap().trim()));
+                        return Ok(resp
+                            .text()
+                            .await
+                            .map_err(|e| anyhow!("Fetch text error: {e:?}"))?
+                            .trim()
+                            .into());
                     }
                     Err(e) => {
                         if i == uris.len() - 1 {
-                            return Err(e);
+                            return Err(e.into());
                         }
                     }
                 }
@@ -152,26 +146,30 @@ pub(crate) mod parser {
         }
     }
 
+    #[async_trait::async_trait]
     impl IPSource for DefaultIPSource {
-        fn get_current_ip(&self) -> Result<String, reqwest::Error> {
-            Self::fetch_ip_from_extern_uris(&self.uris)
+        async fn get_current_ip(&self) -> anyhow::Result<String> {
+            Self::fetch_ip_from_extern_uris(&self.uris).await
         }
     }
 }
 
+#[async_trait::async_trait]
 pub trait NameServer {
-    fn update_dns_result(&self, new_record: &str) -> Result<bool, reqwest::Error>;
+    async fn update_dns_result(&self, new_record: &str) -> Result<bool, reqwest::Error>;
 }
 
+/* #[async_trait::async_trait]
 impl<F: ?Sized> NameServer for Box<F>
 where
     F: NameServer,
 {
-    fn update_dns_result(&self, new_record: &str) -> Result<bool, reqwest::Error> {
+    async fn update_dns_result(&self, new_record: &str) -> Result<bool, reqwest::Error> {
         (**self).update_dns_result(new_record)
     }
-}
+} */
 
+#[async_trait::async_trait]
 pub trait IPSource {
-    fn get_current_ip(&self) -> Result<String, reqwest::Error>;
+    async fn get_current_ip(&self) -> anyhow::Result<String>;
 }

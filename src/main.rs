@@ -25,54 +25,36 @@ mod openwrt;
 mod test;
 
 use crate::configparser::NameServer;
+use clap::arg;
 use log::{error, info, warn};
-use std::io::Write;
+use std::io::Write as _;
 use std::time::Duration;
+use tap::TapFallible;
 
-const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-fn update_process(current_ip: &str, name_server: &dyn NameServer) -> bool {
-    match name_server.update_dns_result(current_ip) {
-        Ok(result) => {
-            if result {
-                info!("IP change detected, Changed dns ip to {}", current_ip);
+async fn update_process(current_ip: &str, name_server: &dyn NameServer) -> bool {
+    name_server
+        .update_dns_result(current_ip)
+        .await
+        .tap_ok(|result| {
+            if *result {
+                info!("IP change detected, Changed dns ip to {current_ip}");
             }
-            true
-        }
-        Err(e) => {
-            error!("Error in getting update from cloudflare: {:#}", e);
-            false
-        }
-    }
+        })
+        .tap_err(|e| error!("Error in getting update from cloudflare: {e:#}"))
+        .is_ok()
 }
 
-fn main() {
-    if std::env::args()
-        .into_iter()
-        .any(|x| x.eq("--version") || x.eq("-V"))
-    {
-        println!("passive-DDNS {}", VERSION);
-        return;
-    }
-
-    if std::env::args().into_iter().any(|x| x.eq("--systemd")) {
-        env_logger::Builder::from_default_env()
-            .format(|buf, record| writeln!(buf, "[{}] - {}", record.level(), record.args()))
-            .init();
-    } else {
-        env_logger::init();
-    }
-
-    let cfg_values = configparser::parser::get_configure_value("data/config.toml");
+async fn async_main(configure_file: &str) -> anyhow::Result<()> {
+    let cfg_values = configparser::parser::get_configure_value(configure_file).await?;
     let (name_server, ip_source, duration) = cfg_values;
     loop {
-        let current_ip = ip_source.get_current_ip().unwrap();
-        if !update_process(&current_ip, &name_server) {
+        let current_ip = ip_source.get_current_ip().await?;
+        if !update_process(&current_ip, &*name_server).await {
             let mut v = true;
             for retry_times in &[5, 10, 60] {
                 warn!("Sleep {retry_times}s for next request");
-                std::thread::sleep(Duration::from_secs(*retry_times));
-                if update_process(&current_ip, &name_server) {
+                tokio::time::sleep(Duration::from_secs(*retry_times)).await;
+                if update_process(&current_ip, &*name_server).await {
                     v = false;
                     break;
                 }
@@ -81,6 +63,31 @@ fn main() {
                 panic!("Error while updating NameServer DNS record");
             }
         }
-        std::thread::sleep(Duration::from_secs(duration as u64));
+        tokio::time::sleep(Duration::from_secs(duration as u64)).await;
     }
+}
+
+fn main() -> anyhow::Result<()> {
+    let matches = clap::command!()
+        .args(&[
+            arg!([CONFIG_FILE] "Configure file location").default_value("config.toml"),
+            arg!(--systemd "Systemd mode, cut time in log output"),
+        ])
+        .get_matches();
+
+    if matches.get_flag("systemd") {
+        env_logger::Builder::from_default_env()
+            .format(|buf, record| writeln!(buf, "[{}] - {}", record.level(), record.args()))
+            .init();
+    } else {
+        env_logger::init();
+    }
+
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async_main(
+            matches.get_one::<String>("CONFIG_FILE").unwrap(),
+        ))
 }

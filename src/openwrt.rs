@@ -19,11 +19,15 @@
  */
 pub(crate) mod api {
     use crate::configparser::IPSource;
+    use log::{error, warn};
     use reqwest::header::HeaderMap;
+    use reqwest::StatusCode;
     use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
-    use std::io::Write;
     use std::path::Path;
+    use tap::TapFallible;
+    use tokio::io::AsyncWriteExt as _;
+    const DEFAULT_SESSION_FILE: &str = ".session";
 
     pub fn get_current_timestamp() -> u128 {
         let start = std::time::SystemTime::now();
@@ -60,19 +64,13 @@ pub(crate) mod api {
         }
     }
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, Default)]
     struct Cookies {
         cookies: Vec<Cookie>,
     }
 
     impl Cookies {
-        fn new() -> Cookies {
-            Cookies {
-                cookies: Default::default(),
-            }
-        }
-
-        fn from_response(response: &reqwest::blocking::Response) -> Cookies {
+        fn from_response(response: &reqwest::Response) -> Cookies {
             let mut cookies: Vec<Cookie> = Default::default();
             log::debug!("Cookie length: {:?}", response.headers());
             for cookie in response.cookies() {
@@ -90,35 +88,33 @@ pub(crate) mod api {
             cookies.join("; ")
         }
 
-        fn save_cookies(resp: reqwest::blocking::Response) -> std::io::Result<()> {
-            let mut session_file = std::fs::OpenOptions::new()
+        async fn save_cookies(resp: reqwest::Response) -> std::io::Result<()> {
+            let mut session_file = tokio::fs::OpenOptions::new()
                 .create(true)
                 .write(true)
                 .truncate(true)
-                .open("data/.session")
-                .unwrap();
+                .open(DEFAULT_SESSION_FILE)
+                .await?;
+
             let content = Cookies::from_response(&resp);
-            session_file.write_all(serde_json::to_string(&content)?.as_bytes())
+            session_file
+                .write_all(serde_json::to_string(&content)?.as_bytes())
+                .await
         }
 
-        fn load_cookies() -> Cookies {
+        async fn load_cookies() -> anyhow::Result<Cookies> {
             //let mut cookies= Cookies::new();
             log::debug!("Loading cookies");
-            let session_path = Path::new("data/.session");
-            if Path::exists(session_path) {
-                match std::fs::read_to_string(session_path) {
-                    Ok(content) => serde_json::from_str(content.as_str()).unwrap_or_else(|_| {
-                        log::warn!("Got unexpected error while parse json, load default cookies");
-                        Cookies::new()
-                    }),
-                    Err(_e) => {
-                        log::warn!("Got unexpected error, load default cookies");
-                        Cookies::new()
-                    }
-                }
+            if <&str as AsRef<Path>>::as_ref(&DEFAULT_SESSION_FILE).exists() {
+                let txt = tokio::fs::read_to_string(DEFAULT_SESSION_FILE)
+                    .await
+                    .tap_err(|e| warn!("Read cookie file error: {e:?}"))?;
+                Ok(serde_json::from_str(&txt)
+                    .tap_err(|e| warn!("Deserialize cookie file error: {e:?}"))?)
             } else {
-                log::warn!("File not found, fallback to default");
-                Cookies::new()
+                Err(anyhow::anyhow!(
+                    "Cookie file not found, fallback to default"
+                ))
             }
         }
 
@@ -148,15 +144,21 @@ pub(crate) mod api {
 
     pub struct Client {
         configure: Configure,
-        client: reqwest::blocking::Client,
+        client: reqwest::Client,
     }
 
     impl Client {
-        fn check_login(&self, cookies: &Cookies) -> bool {
+        async fn check_login(&self, cookies: &Cookies) -> anyhow::Result<bool> {
             log::debug!("Check login");
             let mut header_map = HeaderMap::new();
             if cookies.len() > 0 {
-                header_map.append("cookie", cookies.to_header_string().parse().unwrap());
+                header_map.append(
+                    "cookie",
+                    cookies
+                        .to_header_string()
+                        .parse()
+                        .tap_err(|e| error!("Invalid header value: {e:?}"))?,
+                );
             }
 
             let request_builder = self
@@ -164,19 +166,12 @@ pub(crate) mod api {
                 .get(format!("{}/cgi-bin/luci/", &self.configure.basic_address).as_str())
                 .headers(header_map);
 
-            let resp = match request_builder.send() {
-                Ok(req) => req,
-                Err(e) => {
-                    panic!("Error with status code: {e}");
-                }
-            }
-            .status();
-            resp.as_u16() == 200
+            Ok(request_builder.send().await?.status() == 200)
         }
 
-        fn do_login(&self, cookies: &Cookies) -> Result<bool, reqwest::blocking::Response> {
+        async fn do_login(&self, cookies: &Cookies) -> anyhow::Result<bool> {
             //let cookies = Cookies::load_cookies();
-            if self.check_login(cookies) {
+            if self.check_login(cookies).await? {
                 return Ok(true);
             }
             log::debug!("Trying re-login");
@@ -189,15 +184,17 @@ pub(crate) mod api {
                 .form(&post_data)
                 //.header("cookie", cookies.to_entry_string())
                 .send()
-                .expect("OpenWRT login failure");
-            let status_code = resp.status().as_u16();
+                .await?;
+            let status_code = resp.status();
             log::debug!("Status code: {status_code}");
-            if status_code == 200 || status_code == 302 {
-                Cookies::save_cookies(resp).unwrap();
+            if status_code == StatusCode::OK || status_code == StatusCode::FOUND {
+                Cookies::save_cookies(resp)
+                    .await
+                    .tap_err(|e| error!("Save cookie error: {e:?}"))?;
                 Ok(false)
             } else {
-                log::error!("Error code: {status_code}");
-                Err(resp)
+                error!("Error code: {status_code}");
+                Err(anyhow::anyhow!("Not login because status code"))
             }
         }
 
@@ -205,7 +202,7 @@ pub(crate) mod api {
         where
             T: Into<String>,
         {
-            let client = reqwest::blocking::ClientBuilder::new()
+            let client = reqwest::ClientBuilder::new()
                 .cookie_store(true)
                 .redirect(reqwest::redirect::Policy::none())
                 .build()
@@ -215,15 +212,21 @@ pub(crate) mod api {
         }
     }
 
+    #[async_trait::async_trait]
     impl IPSource for Client {
-        fn get_current_ip(&self) -> Result<String, reqwest::Error> {
-            let cookies = Cookies::load_cookies();
-            // TODO: Fix this `?'
-            let need_load_cookie = self.do_login(&cookies).unwrap();
+        async fn get_current_ip(&self) -> anyhow::Result<String> {
+            let cookies = Cookies::load_cookies().await.unwrap_or_default();
+            let need_load_cookie = self.do_login(&cookies).await?;
 
             let mut header_map = HeaderMap::new();
             if need_load_cookie {
-                header_map.append("cookie", cookies.to_header_string().parse().unwrap());
+                header_map.append(
+                    "cookie",
+                    cookies
+                        .to_header_string()
+                        .parse()
+                        .tap_err(|e| error!("Invalid header value: {e:?}"))?,
+                );
             }
 
             let resp = self
@@ -237,11 +240,20 @@ pub(crate) mod api {
                     .as_str(),
                 )
                 .headers(header_map)
-                .send()?;
+                .send()
+                .await?;
 
-            let content: serde_json::Value = resp.json().unwrap();
+            let content: serde_json::Value = resp
+                .json()
+                .await
+                .tap_err(|e| error!("Parse json error: {e:?}"))?;
 
-            Ok(String::from(content["wan"]["ipaddr"].as_str().unwrap()))
+            Ok(String::from(
+                content["wan"]["ipaddr"].as_str().unwrap_or_else(|| {
+                    error!("Can't found address {content:?}");
+                    "N/A"
+                }),
+            ))
         }
     }
 

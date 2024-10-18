@@ -21,7 +21,7 @@ const DEFAULT_TIMEOUT: u64 = 10;
 pub(crate) mod api {
     use super::DEFAULT_TIMEOUT;
     use crate::configparser::NameServer;
-    use serde_derive::{Deserialize, Serialize};
+    use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
     use std::time::Duration;
 
@@ -41,7 +41,7 @@ pub(crate) mod api {
             self.content = content.into();
         }*/
 
-        fn update_ns_record(&self, session: &reqwest::blocking::Client) -> bool {
+        async fn update_ns_record(&self, session: &reqwest::Client) -> reqwest::Result<bool> {
             let resp = session
                 .put(
                     format!(
@@ -52,8 +52,8 @@ pub(crate) mod api {
                 )
                 .json(&PutDNSRecord::from_dns_record(self))
                 .send()
-                .unwrap();
-            resp.status().is_success()
+                .await?;
+            Ok(resp.status().is_success())
         }
     }
 
@@ -96,9 +96,9 @@ pub(crate) mod api {
     }
 
     impl Zone {
-        pub(crate) fn request_domain_record(
+        pub(crate) async fn request_domain_record(
             &self,
-            session: &reqwest::blocking::Client,
+            session: &reqwest::Client,
         ) -> Result<Vec<DNSRecord>, reqwest::Error> {
             let mut records: Vec<DNSRecord> = Default::default();
             //let form: HashMap::<_, _>::from_iter = (("test", "test"), ("test", "test"));
@@ -116,8 +116,9 @@ pub(crate) mod api {
                         .as_str(),
                     )
                     .query(&query)
-                    .send()?;
-                let resp_json: serde_json::Value = resp.json().unwrap();
+                    .send()
+                    .await?;
+                let resp_json: serde_json::Value = resp.json().await.unwrap();
                 let dns_record: DNSRecord =
                     serde_json::from_value(resp_json["result"][0].to_owned()).unwrap();
                 records.push(dns_record);
@@ -128,7 +129,7 @@ pub(crate) mod api {
 
     pub struct Configure {
         zones: Vec<Zone>,
-        session: reqwest::blocking::Client,
+        session: reqwest::Client,
     }
 
     impl Configure {
@@ -137,7 +138,7 @@ pub(crate) mod api {
             let mut header_map = reqwest::header::HeaderMap::new();
             header_map.insert(
                 "Authorization",
-                format!("Bearer {}", api_token).parse().unwrap(),
+                format!("Bearer {api_token}").parse().unwrap(),
             );
             header_map.insert(
                 "Content-Type",
@@ -145,7 +146,7 @@ pub(crate) mod api {
             );
             header_map.insert("Connection", String::from("close").parse().unwrap());
 
-            let session = reqwest::blocking::Client::builder()
+            let session = reqwest::Client::builder()
                 .default_headers(header_map)
                 .timeout(Duration::from_secs(DEFAULT_TIMEOUT))
                 .connect_timeout(Duration::from_secs(DEFAULT_TIMEOUT))
@@ -158,10 +159,10 @@ pub(crate) mod api {
             }
         }
 
-        fn fetch_data(&self) -> Result<Vec<DNSRecord>, reqwest::Error> {
+        async fn fetch_data(&self) -> Result<Vec<DNSRecord>, reqwest::Error> {
             let mut result: Vec<DNSRecord> = Default::default();
             for zone in &self.zones {
-                result.extend(zone.request_domain_record(&self.session)?);
+                result.extend(zone.request_domain_record(&self.session).await?);
             }
             Ok(result)
         }
@@ -192,10 +193,11 @@ pub(crate) mod api {
         }
     }
 
+    #[async_trait::async_trait]
     impl NameServer for Configure {
-        fn update_dns_result(&self, new_record: &str) -> Result<bool, reqwest::Error> {
+        async fn update_dns_result(&self, new_record: &str) -> Result<bool, reqwest::Error> {
             let mut need_updated: Vec<DNSRecord> = Default::default();
-            for record in self.fetch_data()? {
+            for record in self.fetch_data().await? {
                 if !record.content.eq(new_record) {
                     let mut mut_record = record;
                     mut_record.content = String::from(new_record);
@@ -204,7 +206,7 @@ pub(crate) mod api {
             }
             let rt = !need_updated.is_empty();
             for record in need_updated {
-                record.update_ns_record(&self.session);
+                record.update_ns_record(&self.session).await?;
             }
             Ok(rt)
         }
