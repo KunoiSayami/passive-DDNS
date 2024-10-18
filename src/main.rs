@@ -1,5 +1,5 @@
 /*
- ** Copyright (C) 2021 KunoiSayami
+ ** Copyright (C) 2021-2024 KunoiSayami
  **
  ** This file is part of passive-DDNS and is released under
  ** the AGPL v3 License: https://www.gnu.org/licenses/agpl-3.0.txt
@@ -70,7 +70,7 @@ fn main() {
         if !update_process(&current_ip, &name_server) {
             let mut v = true;
             for retry_times in &[5, 10, 60] {
-                warn!("Sleep {}s for next request", retry_times);
+                warn!("Sleep {retry_times}s for next request");
                 std::thread::sleep(Duration::from_secs(*retry_times));
                 if update_process(&current_ip, &name_server) {
                     v = false;
@@ -78,7 +78,7 @@ fn main() {
                 }
             }
             if v {
-                panic!("Error while updating Nameserver DNS record");
+                panic!("Error while updating NameServer DNS record");
             }
         }
         std::thread::sleep(Duration::from_secs(duration as u64));

@@ -10,7 +10,7 @@ Python version is deprecated after `b690919c83f7fb879c2e34db8cb7e87262d0f565` co
 
 ## Usage
 
-Copy `config.toml.default` to `config.ini`, parse your `token`, `domain`, in configure file. Then, using this command to run program:
+Copy `config.toml.default` to `config.toml`, parse your `token`, `domain`, in configure file. Then, using this command to run program:
 
 ```bash
 cargo run --release

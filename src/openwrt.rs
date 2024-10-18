@@ -1,5 +1,5 @@
 /*
- ** Copyright (C) 2021 KunoiSayami
+ ** Copyright (C) 2021-2024 KunoiSayami
  **
  ** This file is part of passive-DDNS and is released under
  ** the AGPL v3 License: https://www.gnu.org/licenses/agpl-3.0.txt
@@ -167,7 +167,7 @@ pub(crate) mod api {
             let resp = match request_builder.send() {
                 Ok(req) => req,
                 Err(e) => {
-                    panic!("Error with status code: {}", e);
+                    panic!("Error with status code: {e}");
                 }
             }
             .status();

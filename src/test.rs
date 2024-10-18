@@ -1,5 +1,5 @@
 /*
- ** Copyright (C) 2021 KunoiSayami
+ ** Copyright (C) 2021-2024 KunoiSayami
  **
  ** This program is free software: you can redistribute it and/or modify
  ** it under the terms of the GNU Affero General Public License as published by
@@ -63,13 +63,15 @@ token = ""
 
         for zone in cf2.zones() {
             if zone.zone_id().eq("ca3d180a0c66ac16da45fad9f7674292") {
-                assert_eq!(zone.domains(), &vec!["a.example.com".to_string(), "b.example.com".to_string()])
+                assert_eq!(
+                    zone.domains(),
+                    &vec!["a.example.com".to_string(), "b.example.com".to_string()]
+                )
             } else if zone.zone_id().eq("2d9437302c842804ab97f94e657c98af") {
                 assert_eq!(zone.domains(), &vec!["c.example.moe".to_string()])
             } else {
                 unreachable!()
             }
         }
-
     }
 }

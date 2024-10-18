@@ -1,5 +1,5 @@
 /*
- ** Copyright (C) 2021 KunoiSayami
+ ** Copyright (C) 2021-2024 KunoiSayami
  **
  ** This file is part of passive-DDNS and is released under
  ** the AGPL v3 License: https://www.gnu.org/licenses/agpl-3.0.txt
@@ -96,7 +96,6 @@ pub(crate) mod api {
     }
 
     impl Zone {
-
         pub(crate) fn request_domain_record(
             &self,
             session: &reqwest::blocking::Client,
@@ -153,7 +152,10 @@ pub(crate) mod api {
                 .build()
                 .unwrap();
 
-            Configure { zones: domains.clone(), session }
+            Configure {
+                zones: domains.clone(),
+                session,
+            }
         }
 
         fn fetch_data(&self) -> Result<Vec<DNSRecord>, reqwest::Error> {
@@ -207,5 +209,4 @@ pub(crate) mod api {
             Ok(rt)
         }
     }
-
 }
