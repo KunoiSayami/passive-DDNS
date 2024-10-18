@@ -43,13 +43,10 @@ pub(crate) mod api {
 
         async fn update_ns_record(&self, session: &reqwest::Client) -> reqwest::Result<bool> {
             let resp = session
-                .put(
-                    format!(
-                        "https://api.cloudflare.com/client/v4/zones/{}/dns_records/{}",
-                        &self.zone_id, &self.id
-                    )
-                    .as_str(),
-                )
+                .put(format!(
+                    "https://api.cloudflare.com/client/v4/zones/{}/dns_records/{}",
+                    self.zone_id, self.id
+                ))
                 .json(&PutDNSRecord::from_dns_record(self))
                 .send()
                 .await?;
@@ -104,9 +101,8 @@ pub(crate) mod api {
             //let form: HashMap::<_, _>::from_iter = (("test", "test"), ("test", "test"));
 
             for domain in &self.domains {
-                let name = domain.as_str();
                 let query: HashMap<&str, &str> =
-                    [("type", "A"), ("name", name)].iter().cloned().collect();
+                    [("type", "A"), ("name", &domain)].iter().cloned().collect();
                 let resp = session
                     .get(
                         format!(
@@ -140,11 +136,8 @@ pub(crate) mod api {
                 "Authorization",
                 format!("Bearer {api_token}").parse().unwrap(),
             );
-            header_map.insert(
-                "Content-Type",
-                String::from("application/json").parse().unwrap(),
-            );
-            header_map.insert("Connection", String::from("close").parse().unwrap());
+            header_map.insert("Content-Type", "application/json".parse().unwrap());
+            header_map.insert("Connection", "close".parse().unwrap());
 
             let session = reqwest::Client::builder()
                 .default_headers(header_map)
@@ -160,7 +153,7 @@ pub(crate) mod api {
         }
 
         async fn fetch_data(&self) -> Result<Vec<DNSRecord>, reqwest::Error> {
-            let mut result: Vec<DNSRecord> = Default::default();
+            let mut result = Vec::new();
             for zone in &self.zones {
                 result.extend(zone.request_domain_record(&self.session).await?);
             }
@@ -196,7 +189,7 @@ pub(crate) mod api {
     #[async_trait::async_trait]
     impl NameServer for Configure {
         async fn update_dns_result(&self, new_record: &str) -> Result<bool, reqwest::Error> {
-            let mut need_updated: Vec<DNSRecord> = Default::default();
+            let mut need_updated = Vec::new();
             for record in self.fetch_data().await? {
                 if !record.content.eq(new_record) {
                     let mut mut_record = record;

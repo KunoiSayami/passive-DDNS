@@ -10,3 +10,5 @@ target/
 data/*
 !data/*.default
 .vscode/
+.session
+*.toml
