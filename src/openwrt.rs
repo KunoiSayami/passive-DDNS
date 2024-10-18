@@ -191,12 +191,12 @@ pub(crate) mod api {
                 .send()
                 .expect("OpenWRT login failure");
             let status_code = resp.status().as_u16();
-            log::debug!("Status code: {}", status_code);
+            log::debug!("Status code: {status_code}");
             if status_code == 200 || status_code == 302 {
                 Cookies::save_cookies(resp).unwrap();
                 Ok(false)
             } else {
-                log::error!("Error code: {}", status_code);
+                log::error!("Error code: {status_code}");
                 Err(resp)
             }
         }
